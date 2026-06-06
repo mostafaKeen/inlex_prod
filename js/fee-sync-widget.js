@@ -1,31 +1,38 @@
 /**
- * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX v3)
+ * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX v4)
  * Supports: Deal & Lead entities
  * SPA Item Types: 1058 (Professional Fees), 1062 (Government Fees)
  *
- * FIXES IN v3:
+ * FIXES IN v4:
  * ─────────────────────────────────────────────────────────────────────────────
- * FIX 1 — recalcTotals() property wipe (v2 fix, kept):
- *   Only overwrite typeOfCost/payments from DOM when the select has a non-empty
- *   value. Previously, an unmatched select (value="") silently erased the
- *   correctly loaded catalog values before sync.
+ * FIX 5 — crm.product.update/add wrong list property write format:
+ *   Old format (broken):  PROPERTY_111: [{ VALUE: "209" }]
+ *   Correct format:       PROPERTY_111: [{ id: 0, value: "209" }]
  *
- * FIX 2 — crm.product.update wrong property format:
- *   Old format (broken):  PROPERTY_111: [{ id: 209 }]
- *   Correct format:       PROPERTY_111: [{ VALUE: "209" }]
- *   crm.product.* uses the legacy iblock REST API which expects { VALUE: "..." }
- *   objects, not { id: N }. The { id } format is only valid for the newer
- *   catalog.product.* API family.
+ *   The crm.product.* legacy iblock REST API requires list-type property values
+ *   to be written as [{ id: 0, value: "<enumOptionId>" }].
+ *   - id: 0  → tells the API this is a new assignment (not updating a specific
+ *              multi-value record by its record ID)
+ *   - value  → the enum option ID as a string (e.g. "207", "209", "193" …)
+ *
+ *   This fix is applied in TWO places:
+ *     a) updateCatalogProducts()  — called during Save & Sync
+ *     b) showProductEditModal()   — called when creating/editing a product
+ *
+ * FIXES CARRIED FORWARD FROM v3:
+ * ─────────────────────────────────────────────────────────────────────────────
+ * FIX 1 — recalcTotals() property wipe:
+ *   Only overwrite typeOfCost/payments from DOM when the select has a non-empty
+ *   value.
+ *
+ * FIX 2 — (superseded by FIX 5; the VALUE format was already wrong in v3)
  *
  * FIX 3 — skip updateCatalogProducts for rows with no productId:
  *   Rows added manually (no catalog product selected) had productId="" which
- *   caused a crm.product.update call with id="" → silent API error. These rows
- *   are now excluded from the catalog update step.
+ *   caused a crm.product.update call with id="" → silent API error.
  *
  * FIX 4 — syncSpaItems now includes rows with no typeOfCost:
- *   Previously rows without typeOfCost were silently dropped.
- *   Now they are routed to a "no SPA" bucket and logged clearly.
- *   This does not change SPA routing logic (207→1062, 209→1058).
+ *   Rows without typeOfCost are routed to a "no SPA" bucket and logged.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -663,9 +670,9 @@ var FeeSyncWidget = (function () {
       if (nameEl)  row.name      = nameEl.value;
       if (selEl)   row.productId = selEl.value;
 
-      // ── FIX 1: Only overwrite enum fields when the user has actually selected
-      //           a value. Unconditional assignment wiped catalog-loaded values
-      //           when the <select> had no matching option (value === "").
+      // FIX 1: Only overwrite enum fields when the user has actually selected
+      // a value. Unconditional assignment wiped catalog-loaded values when the
+      // <select> had no matching option (value === "").
       if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
       if (payEl && payEl.value) row.payments   = payEl.value;
 
@@ -756,8 +763,8 @@ var FeeSyncWidget = (function () {
 
   // ─── Update catalog products with property values ──────────────────────────
   function updateCatalogProducts(rows, cb) {
-    // ── FIX 3: Exclude rows with no productId (manually typed names).
-    //           Calling crm.product.update with id="" causes an API error.
+    // FIX 3: Exclude rows with no productId (manually typed names).
+    // Calling crm.product.update with id="" causes an API error.
     var productsToUpdate = rows.filter(function (r) {
       return r.productId && (r.typeOfCost || r.payments);
     });
@@ -773,15 +780,21 @@ var FeeSyncWidget = (function () {
     productsToUpdate.forEach(function (row) {
       var fields = {};
 
-      // ── FIX 2: crm.product.* uses legacy iblock REST format for list-type
-      //           properties.  The correct format is [{ VALUE: "enumId" }],
-      //           NOT [{ id: N }].  The { id } format is only valid for the
-      //           newer catalog.product.* API family.
+      // ── FIX 5: crm.product.* list-type properties must be written as:
+      //           [{ id: 0, value: "<enumOptionId>" }]
+      //
+      //   - id: 0   → "new assignment" (not updating a specific multi-value
+      //               record by its record ID)
+      //   - value   → the enum option ID as a string ("207", "209", "193" …)
+      //
+      //   This is the format the legacy iblock REST API expects.
+      //   The { VALUE: "..." } format (v3) was wrong and caused a 400 error:
+      //   "Wrong format value of field `PROPERTY_111`"
       if (row.typeOfCost) {
-        fields['PROPERTY_111'] = [{ VALUE: String(row.typeOfCost) }];
+        fields['PROPERTY_111'] = [{ id: 0, value: String(row.typeOfCost) }];
       }
       if (row.payments) {
-        fields['PROPERTY_109'] = [{ VALUE: String(row.payments) }];
+        fields['PROPERTY_109'] = [{ id: 0, value: String(row.payments) }];
       }
 
       console.log('[FeeSyncWidget] crm.product.update #' + row.productId, JSON.stringify(fields));
@@ -818,9 +831,7 @@ var FeeSyncWidget = (function () {
     var govRows   = rows.filter(function (r) { return r.typeOfCost === '207'; });
     var otherRows = rows.filter(function (r) { return r.typeOfCost !== '209' && r.typeOfCost !== '207'; });
 
-    // ── FIX 4: Log rows that have no typeOfCost so they are visible in debug.
-    //           These rows are intentionally excluded from SPA sync — a row with
-    //           no Type of Cost cannot be routed to either SPA 1058 or 1062.
+    // FIX 4: Log rows that have no typeOfCost so they are visible in debug.
     if (otherRows.length > 0) {
       log('Skipping ' + otherRows.length + ' row(s) with no Type of Cost (not synced to SPA)');
       otherRows.forEach(function (r) {
@@ -1088,13 +1099,14 @@ var FeeSyncWidget = (function () {
       var vt  = document.getElementById('ep-visa-type').value;
       var vs  = document.getElementById('ep-visa-status').value;
 
-      // ── FIX 2 (same fix applied to the edit modal):
-      //    Use [{ VALUE: "enumId" }] format for crm.product.add/update list props.
-      if (toc) fields['PROPERTY_111'] = [{ VALUE: String(toc) }];
-      if (pay) fields['PROPERTY_109'] = [{ VALUE: String(pay) }];
-      if (ct)  fields['PROPERTY_99']  = [{ VALUE: String(ct)  }];
-      if (vt)  fields['PROPERTY_101'] = [{ VALUE: String(vt)  }];
-      if (vs)  fields['PROPERTY_103'] = [{ VALUE: String(vs)  }];
+      // ── FIX 5 (same fix applied to the edit/create modal):
+      //    Use [{ id: 0, value: "<enumOptionId>" }] for all list-type properties.
+      //    id: 0 = new assignment; value = the enum option ID as a string.
+      if (toc) fields['PROPERTY_111'] = [{ id: 0, value: String(toc) }];
+      if (pay) fields['PROPERTY_109'] = [{ id: 0, value: String(pay) }];
+      if (ct)  fields['PROPERTY_99']  = [{ id: 0, value: String(ct)  }];
+      if (vt)  fields['PROPERTY_101'] = [{ id: 0, value: String(vt)  }];
+      if (vs)  fields['PROPERTY_103'] = [{ id: 0, value: String(vs)  }];
 
       var btn         = document.getElementById('ep-save');
       btn.disabled    = true;
