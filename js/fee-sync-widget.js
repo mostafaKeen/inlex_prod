@@ -78,7 +78,7 @@ var FeeSyncWidget = (function () {
   }
 
   // ─── Init ──────────────────────────────────────────────────────────────────
-  function init(entityType, entityId) {
+  function init(entityType, entityId, onReady) {
     state.entityType = entityType;
     state.entityId   = entityId;
     state.rows       = [];
@@ -89,45 +89,52 @@ var FeeSyncWidget = (function () {
     setStatus('Loading…', 'status-info');
     log('Initialising for ' + entityType + ' #' + entityId);
 
-    // Load catalog products + existing entity products in parallel
+    // Load catalog products then existing entity products sequentially
     loadCatalogProducts(function () {
       loadEntityProducts(function () {
         renderRows();
         bindActions();
         setStatus('Ready', 'status-info');
+        if (typeof onReady === 'function') onReady();
       });
     });
   }
 
   // ─── Load catalog ──────────────────────────────────────────────────────────
+  // crm.product.list is the reliable REST method for the CRM product catalog.
+  // catalog.product.list requires an iblockId and returns 400 without it, so
+  // we go straight to crm.product and page through all results.
   function loadCatalogProducts(cb) {
-    BX24.callMethod('catalog.product.list', {
-      select: ['id', 'name', 'price', 'vatId', 'vatIncluded',
-               'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-               'PROPERTY_101', 'PROPERTY_103'],
-      filter: { 'ACTIVE': 'Y' },
-      order: { 'NAME': 'ASC' }
-    }, function (res) {
-      if (res.error()) {
-        log('Catalog load error: ' + res.error(), 'err');
-        // Try alternative method
-        BX24.callMethod('crm.product.list', {
-          select: ['ID', 'NAME', 'PRICE', 'VAT_ID', 'VAT_INCLUDED',
-                   'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-                   'PROPERTY_101', 'PROPERTY_103'],
-          filter: {},
-          order: { 'NAME': 'ASC' }
-        }, function (res2) {
-          state.productCatalog = res2.error() ? [] : (res2.data() || []);
-          log('Loaded ' + state.productCatalog.length + ' catalog products (crm.product fallback)');
+    var allProducts = [];
+
+    function fetchPage(start) {
+      BX24.callMethod('crm.product.list', {
+        select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
+                 'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
+                 'PROPERTY_101', 'PROPERTY_103'],
+        filter: { 'ACTIVE': 'Y' },
+        order:  { 'NAME': 'ASC' },
+        start:  start
+      }, function (res) {
+        if (res.error()) {
+          log('Catalog load error: ' + res.error());
+          state.productCatalog = allProducts;
           if (cb) cb();
-        });
-        return;
-      }
-      state.productCatalog = res.data() || [];
-      log('Loaded ' + state.productCatalog.length + ' catalog products');
-      if (cb) cb();
-    });
+          return;
+        }
+        var page = res.data() || [];
+        allProducts = allProducts.concat(page);
+        if (res.more()) {
+          fetchPage(res.next());
+        } else {
+          state.productCatalog = allProducts;
+          log('Loaded ' + allProducts.length + ' catalog products');
+          if (cb) cb();
+        }
+      });
+    }
+
+    fetchPage(0);
   }
 
   // ─── Load existing entity products ────────────────────────────────────────
@@ -172,13 +179,25 @@ var FeeSyncWidget = (function () {
     };
   }
 
+  // crm.product.list returns properties in several shapes depending on Bitrix24
+  // version: plain string, {value:"207"}, {VALUE:"207"}, or [{VALUE:"207"}].
   function getPropValue(product, propKey) {
     if (!product) return '';
     var val = product[propKey];
-    if (!val) return '';
-    if (typeof val === 'object' && val.value !== undefined) return val.value;
-    if (typeof val === 'object' && val.VALUE !== undefined) return val.VALUE;
-    return val;
+    if (val === undefined || val === null || val === '') return '';
+    // Array of property values (multiple)
+    if (Array.isArray(val)) {
+      val = val[0];
+      if (val === undefined || val === null) return '';
+    }
+    if (typeof val === 'object') {
+      if (val.value !== undefined) return String(val.value);
+      if (val.VALUE !== undefined) return String(val.VALUE);
+      // some versions: { id:"207", value:"Government Cost" } — we want the id
+      if (val.id !== undefined)    return String(val.id);
+      if (val.ID !== undefined)    return String(val.ID);
+    }
+    return String(val);
   }
 
   function findCatalogProduct(productId) {
@@ -636,9 +655,10 @@ var FeeSyncWidget = (function () {
       taxTotal += base * (r.taxRate / 100);
     });
 
-    setText('total-raw',        'Dh' + raw.toFixed(2));
-    setText('total-before-tax', 'Dh' + raw.toFixed(2));
-    setText('total-amount',     'Dh' + (raw + taxTotal).toFixed(2));
+    setText('total-raw',        'Dh ' + raw.toFixed(2));
+    setText('total-before-tax', 'Dh ' + raw.toFixed(2));
+    setText('total-tax',        'Dh ' + taxTotal.toFixed(2));
+    setText('total-amount',     'Dh ' + (raw + taxTotal).toFixed(2));
   }
 
   function setText(id, val) {
@@ -1040,46 +1060,25 @@ var FeeSyncWidget = (function () {
 
   // ─── Bind top-level actions ────────────────────────────────────────────────
   function bindActions() {
-    // Unbind first to avoid duplicate handlers
-    var addBtn    = document.getElementById('btn-add-product');
-    var selectBtn = document.getElementById('btn-select-product');
-    var saveBtn   = document.getElementById('btn-save');
-
-    if (addBtn) {
-      var newAddBtn = addBtn.cloneNode(true);
-      addBtn.parentNode.replaceChild(newAddBtn, addBtn);
-      newAddBtn.addEventListener('click', addEmptyRow);
-    }
-    if (selectBtn) {
-      var newSelBtn = selectBtn.cloneNode(true);
-      selectBtn.parentNode.replaceChild(newSelBtn, selectBtn);
-      newSelBtn.addEventListener('click', openProductSelector);
-    }
-    if (saveBtn) {
-      var newSaveBtn = saveBtn.cloneNode(true);
-      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-      newSaveBtn.addEventListener('click', saveAndSync);
+    // Clone-replace pattern removes any old listeners (safe for re-init)
+    function rebind(id, handler) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var clone = el.cloneNode(true);
+      el.parentNode.replaceChild(clone, el);
+      clone.addEventListener('click', handler);
     }
 
-    // Add "Edit product" button to toolbar
-    addEditProductBtn();
-  }
-
-  function addEditProductBtn() {
-    var leftActions = document.querySelector('.left-actions');
-    if (!leftActions || document.getElementById('btn-edit-product')) return;
-
-    var btn = document.createElement('button');
-    btn.id = 'btn-edit-product';
-    btn.className = 'btn-secondary-bx';
-    btn.textContent = 'Edit / Create product';
-    btn.addEventListener('click', function () {
-      // If there is a selected row, open edit for that product; else open create
-      var firstSelect = document.querySelector('#product-rows-body .js-product-select');
-      var pid = firstSelect ? firstSelect.value : null;
+    rebind('btn-add-product',    addEmptyRow);
+    rebind('btn-select-product', openProductSelector);
+    rebind('btn-save',           saveAndSync);
+    rebind('btn-edit-product',   function () {
+      // Use the focused/selected row's product if available
+      var activeSelect = document.querySelector('#product-rows-body tr:focus-within .js-product-select')
+                      || document.querySelector('#product-rows-body .js-product-select');
+      var pid = activeSelect ? activeSelect.value : null;
       showProductEditModal(pid || null);
     });
-    leftActions.appendChild(btn);
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
