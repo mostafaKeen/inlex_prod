@@ -1,12 +1,12 @@
 /**
- * Fee Sync Widget — Bitrix24 CRM Product Grid (FIXED)
+ * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX)
  * Supports: Deal & Lead entities
  * SPA Item Types: 1058 (Professional Fees), 1062 (Government Fees)
  * 
- * FIXES:
- * - Properly persist select dropdown values from previously saved data
- * - Better property mapping from entity product rows
- * - Enhanced logging for debugging property loading issues
+ * ISSUE FIXED:
+ * - Property values (typeOfCost, payments) were being lost during buildRowFromEntityRow
+ * - Now using BOTH direct product ID lookup AND property extraction from catalog
+ * - Properly handles Bitrix24's property response format
  */
 
 var FeeSyncWidget = (function () {
@@ -158,18 +158,13 @@ var FeeSyncWidget = (function () {
     });
   }
 
-  // ─── FIXED: Build row with better property persistence ───────────────────
+  // ─── FIXED: Build row with proper property extraction ─────────────────────
   function buildRowFromEntityRow(r) {
     var catalogItem = findCatalogProduct(r.PRODUCT_ID);
     
-    // Get property values: first try entity row data, then fallback to catalog
-    var typeOfCost = r.UF_CRM_TYPE_OF_COST || 
-                     r.PROPERTY_111 || 
-                     getPropValue(catalogItem, 'PROPERTY_111') || '';
-    
-    var payments = r.UF_CRM_PAYMENTS || 
-                   r.PROPERTY_109 || 
-                   getPropValue(catalogItem, 'PROPERTY_109') || '';
+    // Get property values from catalog (since productrows don't include them)
+    var typeOfCost = getPropValue(catalogItem, 'PROPERTY_111') || '';
+    var payments   = getPropValue(catalogItem, 'PROPERTY_109') || '';
 
     var row = {
       id:          state.nextRowId++,
@@ -187,23 +182,26 @@ var FeeSyncWidget = (function () {
     };
 
     log('Row #' + row.id + ': product=' + row.productId + 
+        ', name=' + row.name +
         ', typeOfCost=' + row.typeOfCost + 
         ', payments=' + row.payments);
 
     return row;
   }
 
-  // ─── Helper: Extract property value from product object ───────────────────
+  // ─── Extract property value from product object ────────────────────────────
   function getPropValue(product, propKey) {
     if (!product) return '';
     var val = product[propKey];
     if (val === undefined || val === null || val === '') return '';
     
+    // Handle array of values
     if (Array.isArray(val)) {
       val = val[0];
       if (val === undefined || val === null) return '';
     }
     
+    // Handle object property values (Bitrix24 wraps them)
     if (typeof val === 'object') {
       if (val.id !== undefined)    return String(val.id);
       if (val.ID !== undefined)    return String(val.ID);
@@ -233,12 +231,11 @@ var FeeSyncWidget = (function () {
     recalcTotals();
   }
 
-  // ─── FIXED: Build row element with correct select values ──────────────────
   function buildRowEl(row, num) {
     var tr = document.createElement('tr');
     tr.setAttribute('data-row-id', row.id);
 
-    // Build product catalog options with selection
+    // Build product catalog options
     var opts = '<option value="">-- select --</option>';
     state.productCatalog.forEach(function (p) {
       var pid = p.ID || p.id;
@@ -247,13 +244,13 @@ var FeeSyncWidget = (function () {
       opts += '<option value="' + pid + '"' + sel + '>' + escHtml(pname) + '</option>';
     });
 
-    // Type of cost options - FIXED value matching
+    // Type of cost options
     var typeOpts = buildEnumOpts([
       { id: '207', label: 'Government Cost' },
       { id: '209', label: 'Professional Fees' }
     ], row.typeOfCost);
 
-    // Payments options - FIXED value matching
+    // Payments options
     var payOpts = buildEnumOpts([
       { id: '193', label: 'Annually' },
       { id: '195', label: 'One Time' },
@@ -347,20 +344,18 @@ var FeeSyncWidget = (function () {
     return tr;
   }
 
-  // ─── FIXED: Improved enum option builder with better value matching ────────
   function buildEnumOpts(items, currentVal) {
     var html = '<option value="">-- select --</option>';
     
-    // Normalize currentVal for comparison
+    // Normalize current value
     var normalizedCurrent = String(currentVal || '').trim();
     
     items.forEach(function (item) {
       var itemId = String(item.id).trim();
       var itemLabel = String(item.label).trim();
       
-      // Match by ID first (most reliable), then by label
-      var isSelected = (itemId === normalizedCurrent) || 
-                       (itemLabel.toLowerCase() === normalizedCurrent.toLowerCase());
+      // Match by ID (most reliable)
+      var isSelected = (itemId === normalizedCurrent);
       
       var sel = isSelected ? ' selected' : '';
       html += '<option value="' + itemId + '"' + sel + '>' + escHtml(itemLabel) + '</option>';
