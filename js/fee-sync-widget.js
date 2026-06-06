@@ -1,54 +1,39 @@
 /**
- * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX v4)
+ * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX v5)
  * Supports: Deal & Lead entities
  * SPA Item Types: 1058 (Professional Fees), 1062 (Government Fees)
  *
- * FIXES IN v4:
+ * ROOT CAUSE FIXED IN v5:
  * ─────────────────────────────────────────────────────────────────────────────
- * FIX 5 — crm.product.update/add wrong list property write format:
- *   Old format (broken):  PROPERTY_111: [{ VALUE: "209" }]
- *   Correct format:       PROPERTY_111: [{ id: 0, value: "209" }]
+ * ALL previous versions used crm.product.update with PROPERTY_111 etc.
+ * That is the OLD deprecated iblock API. It does NOT reliably accept list
+ * property writes via REST regardless of format.
  *
- *   The crm.product.* legacy iblock REST API requires list-type property values
- *   to be written as [{ id: 0, value: "<enumOptionId>" }].
- *   - id: 0  → tells the API this is a new assignment (not updating a specific
- *              multi-value record by its record ID)
- *   - value  → the enum option ID as a string (e.g. "207", "209", "193" …)
+ * The CORRECT modern API is:
+ *   catalog.product.update  — update an existing catalog product
+ *   catalog.product.add     — create a new catalog product
  *
- *   This fix is applied in TWO places:
- *     a) updateCatalogProducts()  — called during Save & Sync
- *     b) showProductEditModal()   — called when creating/editing a product
+ * Property field naming:
+ *   catalog.product.*  uses camelCase:  property111, property109, property99 …
+ *   crm.product.*      uses UPPER_CASE: PROPERTY_111 (READ only — deprecated)
  *
- * FIXES CARRIED FORWARD FROM v3:
- * ─────────────────────────────────────────────────────────────────────────────
- * FIX 1 — recalcTotals() property wipe:
- *   Only overwrite typeOfCost/payments from DOM when the select has a non-empty
- *   value.
+ * Property value format per official docs:
+ *   ADD:    property111: "207"              (plain string for single-value)
+ *   UPDATE: property111: {value:"207", valueId: N}  where valueId comes from
+ *           catalog.product.get on that product (0 if never set before)
  *
- * FIX 2 — (superseded by FIX 5; the VALUE format was already wrong in v3)
+ * catalog.product.* also requires iblockId.
+ * We fetch it once via catalog.catalog.list and cache it in state.iblockId.
  *
- * FIX 3 — skip updateCatalogProducts for rows with no productId:
- *   Rows added manually (no catalog product selected) had productId="" which
- *   caused a crm.product.update call with id="" → silent API error.
- *
- * FIX 4 — syncSpaItems now includes rows with no typeOfCost:
- *   Rows without typeOfCost are routed to a "no SPA" bucket and logged.
+ * READING properties still uses crm.product.list (fine for reads).
+ * WRITING properties now uses catalog.product.update / catalog.product.add.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 var FeeSyncWidget = (function () {
 
-  // ─── Field Maps ────────────────────────────────────────────────────────────
+  // ─── SPA Field Maps ────────────────────────────────────────────────────────
 
-  var PRODUCT_PROPS = {
-    typeOfCost:  'PROPERTY_111',
-    payments:    'PROPERTY_109',
-    companyType: 'PROPERTY_99',
-    visaType:    'PROPERTY_101',
-    visaStatus:  'PROPERTY_103',
-  };
-
-  // SPA 1058 = Professional Fees
   var SPA_PROF_FIELDS = {
     typeOfCost:  'ufCrm15_1779367818775',
     payments:    'ufCrm15_1779367955682',
@@ -57,7 +42,6 @@ var FeeSyncWidget = (function () {
     visaStatus:  'ufCrm15_1779368405816',
   };
 
-  // SPA 1062 = Government Fees
   var SPA_GOV_FIELDS = {
     typeOfCost:  'ufCrm17_1779370162991',
     payments:    'ufCrm17_1779370261982',
@@ -66,13 +50,12 @@ var FeeSyncWidget = (function () {
     visaStatus:  'ufCrm17_1779370325590',
   };
 
-  // Deal custom fields
-  var DEAL_PROF_FIELD  = 'UF_CRM_1779313011';
-  var DEAL_GOV_FIELD   = 'UF_CRM_1779654189';
-  var LEAD_PROF_FIELD  = 'UF_CRM_1779194029';
-  var LEAD_GOV_FIELD   = null;
+  var DEAL_PROF_FIELD = 'UF_CRM_1779313011';
+  var DEAL_GOV_FIELD  = 'UF_CRM_1779654189';
+  var LEAD_PROF_FIELD = 'UF_CRM_1779194029';
+  var LEAD_GOV_FIELD  = null;
 
-  // Catalog product property option maps
+  // Human-readable labels for display
   var PROP_TYPE_OF_COST = { '207': 'Government Cost', '209': 'Professional Fees' };
   var PROP_PAYMENTS = {
     '193': 'Annually', '195': 'One Time', '197': 'Quarterly',
@@ -83,19 +66,17 @@ var FeeSyncWidget = (function () {
 
   // ─── State ─────────────────────────────────────────────────────────────────
   var state = {
-    entityType: null,
-    entityId:   null,
-    rows:       [],
-    nextRowId:  1,
+    entityType:     null,
+    entityId:       null,
+    rows:           [],
+    nextRowId:      1,
     productCatalog: [],
-    spaItems: {
-      prof: {},
-      gov:  {}
-    }
+    iblockId:       null,   // fetched from catalog.catalog.list
+    spaItems:       { prof: {}, gov: {} }
   };
 
-  // ─── DOM Refs & Logging ────────────────────────────────────────────────────
-  function log(msg, level) {
+  // ─── Logging ───────────────────────────────────────────────────────────────
+  function log(msg) {
     console.log('[FeeSyncWidget] ' + msg);
     var el = document.getElementById('sync-log');
     if (!el) return;
@@ -112,27 +93,53 @@ var FeeSyncWidget = (function () {
 
   // ─── Init ──────────────────────────────────────────────────────────────────
   function init(entityType, entityId, onReady) {
-    state.entityType = entityType;
-    state.entityId   = entityId;
-    state.rows       = [];
-    state.nextRowId  = 1;
+    state.entityType     = entityType;
+    state.entityId       = entityId;
+    state.rows           = [];
+    state.nextRowId      = 1;
     state.productCatalog = [];
-    state.spaItems = { prof: {}, gov: {} };
+    state.iblockId       = null;
+    state.spaItems       = { prof: {}, gov: {} };
 
     setStatus('Loading…', 'status-info');
     log('Initialising for ' + entityType + ' #' + entityId);
 
-    loadCatalogProducts(function () {
-      loadEntityProducts(function () {
-        renderRows();
-        bindActions();
-        setStatus('Ready', 'status-info');
-        if (typeof onReady === 'function') onReady();
+    // First fetch the iblockId for the CRM product catalog, then load products
+    fetchIblockId(function () {
+      loadCatalogProducts(function () {
+        loadEntityProducts(function () {
+          renderRows();
+          bindActions();
+          setStatus('Ready', 'status-info');
+          if (typeof onReady === 'function') onReady();
+        });
       });
     });
   }
 
-  // ─── Load catalog ──────────────────────────────────────────────────────────
+  // ─── Fetch iblock ID (needed for catalog.product.*) ────────────────────────
+  function fetchIblockId(cb) {
+    BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+      if (res.error()) {
+        log('catalog.catalog.list error: ' + res.error() + ' — will try iblockId=null');
+        if (cb) cb();
+        return;
+      }
+      var catalogs = res.data() || [];
+      // The CRM product catalog has iblockTypeId = 'CRM_PRODUCT_CATALOG' or similar;
+      // in most portals there is only one catalog, or we pick the first one.
+      var catalog = catalogs[0] || null;
+      if (catalog) {
+        state.iblockId = catalog.id || catalog.ID || null;
+        log('Catalog iblockId = ' + state.iblockId);
+      } else {
+        log('No catalog found via catalog.catalog.list');
+      }
+      if (cb) cb();
+    });
+  }
+
+  // ─── Load catalog products (read via crm.product.list — still fine) ────────
   function loadCatalogProducts(cb) {
     var allProducts = [];
 
@@ -161,7 +168,7 @@ var FeeSyncWidget = (function () {
     });
   }
 
-  // ─── Load existing entity products ────────────────────────────────────────
+  // ─── Load existing entity product rows ────────────────────────────────────
   function loadEntityProducts(cb) {
     var method = state.entityType === 'deal'
       ? 'crm.deal.productrows.get'
@@ -175,27 +182,23 @@ var FeeSyncWidget = (function () {
       }
       var rows = res.data() || [];
       log('Loaded ' + rows.length + ' product row(s) from entity');
-
       rows.forEach(function (r) {
         state.rows.push(buildRowFromEntityRow(r));
       });
-
       if (cb) cb();
     });
   }
 
-  // ─── Build row with proper property extraction ─────────────────────────────
   function buildRowFromEntityRow(r) {
     var catalogItem = findCatalogProduct(r.PRODUCT_ID);
-
-    var typeOfCost = getPropValue(catalogItem, 'PROPERTY_111') || '';
-    var payments   = getPropValue(catalogItem, 'PROPERTY_109') || '';
+    var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
+    var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
 
     var row = {
       id:          state.nextRowId++,
       productId:   r.PRODUCT_ID || '',
-      name:        r.PRODUCT_NAME || (catalogItem ? catalogItem.NAME || catalogItem.name : ''),
-      price:       parseFloat(r.PRICE || 0),
+      name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
+      price:       parseFloat(r.PRICE    || 0),
       qty:         parseFloat(r.QUANTITY || 1),
       taxRate:     parseFloat(r.TAX_RATE || 0),
       taxIncluded: (r.TAX_INCLUDED === 'Y'),
@@ -214,31 +217,25 @@ var FeeSyncWidget = (function () {
     return row;
   }
 
-  // ─── Extract property value from product object ────────────────────────────
+  // ─── Extract property value from crm.product.list result ──────────────────
+  // crm.product.list returns list props as [{ id: N, value: "Label" }]
+  // We want the enum option ID (the `id` field = e.g. 207, 209)
   function getPropValue(product, propKey) {
-  if (!product) return '';
-
-  var val = product[propKey];
-  if (val === undefined || val === null || val === '') return '';
-
-  if (Array.isArray(val)) {
-    val = val[0];
+    if (!product) return '';
+    var val = product[propKey];
     if (val === undefined || val === null || val === '') return '';
+    if (Array.isArray(val)) {
+      val = val[0];
+      if (val === undefined || val === null) return '';
+    }
+    if (typeof val === 'object') {
+      if (val.id    !== undefined) return String(val.id);
+      if (val.ID    !== undefined) return String(val.ID);
+      if (val.VALUE !== undefined) return String(val.VALUE);
+      if (val.value !== undefined) return String(val.value);
+    }
+    return String(val);
   }
-
-  if (typeof val === 'object') {
-    if (val.id !== undefined) return String(val.id).trim();
-    if (val.ID !== undefined) return String(val.ID).trim();
-    if (val.VALUE_ENUM_ID !== undefined) return String(val.VALUE_ENUM_ID).trim();
-    if (val.enumId !== undefined) return String(val.enumId).trim();
-    if (val.valueId !== undefined) return String(val.valueId).trim();
-    if (val.VALUE !== undefined) return String(val.VALUE).trim();
-    if (val.value !== undefined) return String(val.value).trim();
-    if (val.XML_ID !== undefined) return String(val.XML_ID).trim();
-  }
-
-  return String(val).trim();
-}
 
   function findCatalogProduct(productId) {
     if (!productId) return null;
@@ -289,70 +286,31 @@ var FeeSyncWidget = (function () {
     var amount = (row.price * row.qty).toFixed(2);
 
     tr.innerHTML = [
+      '<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
       '<td>',
-        '<div class="row-number">',
-          '<span class="drag-handle">⠿</span>',
-          '<span>' + num + '</span>',
-        '</div>',
+        '<select class="input-bx select-bx js-product-select" style="min-width:160px">' + opts + '</select>',
+        '<input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="margin-top:4px">',
       '</td>',
-      '<td>',
-        '<select class="input-bx select-bx js-product-select" style="min-width:160px">',
-          opts,
-        '</select>',
-        '<input type="text" class="input-bx js-product-name" placeholder="Product name"',
-          ' value="' + escHtml(row.name) + '" style="margin-top:4px">',
-      '</td>',
-      '<td>',
-        '<div class="img-placeholder" title="Image">+</div>',
-      '</td>',
-      '<td>',
-        '<select class="input-bx select-bx js-type-of-cost">',
-          typeOpts,
-        '</select>',
-      '</td>',
-      '<td>',
-        '<div class="input-bx-wrapper">',
-          '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01"',
-            ' value="' + row.price + '">',
-          '<span class="input-bx-suffix">Dh</span>',
-        '</div>',
-      '</td>',
-      '<td>',
-        '<select class="input-bx select-bx js-payments">',
-          payOpts,
-        '</select>',
-      '</td>',
-      '<td>',
-        '<div class="input-bx-wrapper">',
-          '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01"',
-            ' value="' + row.taxRate + '">',
-          '<span class="input-bx-suffix">%</span>',
-        '</div>',
-      '</td>',
-      '<td>',
-        '<div class="input-bx-wrapper">',
-          '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
-          '<input type="number" class="input-bx js-amount" readonly',
-            ' value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
-        '</div>',
-      '</td>',
-      '<td>',
-        '<button class="btn-delete js-delete-row" title="Remove">✕</button>',
-      '</td>'
+      '<td><div class="img-placeholder" title="Image">+</div></td>',
+      '<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
+        '<span class="input-bx-suffix">Dh</span></div></td>',
+      '<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
+        '<span class="input-bx-suffix">%</span></div></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
+        '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
+      '</div></td>',
+      '<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
     ].join('');
 
-    tr.querySelector('.js-product-select').addEventListener('change', function (e) {
-      onProductSelect(row.id, e.target.value);
-    });
-    tr.querySelector('.js-product-name').addEventListener('input', function (e) {
-      updateRowField(row.id, 'name', e.target.value);
-    });
-    tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) {
-      updateRowField(row.id, 'typeOfCost', e.target.value);
-    });
-    tr.querySelector('.js-payments').addEventListener('change', function (e) {
-      updateRowField(row.id, 'payments', e.target.value);
-    });
+    tr.querySelector('.js-product-select').addEventListener('change', function (e) { onProductSelect(row.id, e.target.value); });
+    tr.querySelector('.js-product-name').addEventListener('input',   function (e) { updateRowField(row.id, 'name',      e.target.value); });
+    tr.querySelector('.js-type-of-cost').addEventListener('change',  function (e) { updateRowField(row.id, 'typeOfCost', e.target.value); });
+    tr.querySelector('.js-payments').addEventListener('change',      function (e) { updateRowField(row.id, 'payments',   e.target.value); });
     tr.querySelector('.js-price').addEventListener('input', function (e) {
       updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
       recalcRowAmount(row.id);
@@ -361,9 +319,7 @@ var FeeSyncWidget = (function () {
       updateRowField(row.id, 'taxRate', parseFloat(e.target.value) || 0);
       recalcRowAmount(row.id);
     });
-    tr.querySelector('.js-delete-row').addEventListener('click', function () {
-      deleteRow(row.id);
-    });
+    tr.querySelector('.js-delete-row').addEventListener('click', function () { deleteRow(row.id); });
 
     return tr;
   }
@@ -371,21 +327,17 @@ var FeeSyncWidget = (function () {
   function buildEnumOpts(items, currentVal) {
     var html              = '<option value="">-- select --</option>';
     var normalizedCurrent = String(currentVal || '').trim();
-
     items.forEach(function (item) {
-      var itemId    = String(item.id).trim();
-      var itemLabel = String(item.label).trim();
-      var sel       = (itemId === normalizedCurrent) ? ' selected' : '';
-      html += '<option value="' + itemId + '"' + sel + '>' + escHtml(itemLabel) + '</option>';
+      var sel = (String(item.id).trim() === normalizedCurrent) ? ' selected' : '';
+      html += '<option value="' + item.id + '"' + sel + '>' + escHtml(item.label) + '</option>';
     });
-
     return html;
   }
 
   // ─── Row mutations ─────────────────────────────────────────────────────────
   function onProductSelect(rowId, productId) {
     var catalogItem = findCatalogProduct(productId);
-    var row = findRow(rowId);
+    var row         = findRow(rowId);
     if (!row) return;
 
     row.productId = productId;
@@ -412,11 +364,10 @@ var FeeSyncWidget = (function () {
   function recalcRowAmount(rowId) {
     var row = findRow(rowId);
     if (!row) return;
-    var amount = row.price * row.qty;
     var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
     if (tr) {
       var amtInput = tr.querySelector('.js-amount');
-      if (amtInput) amtInput.value = amount.toFixed(2);
+      if (amtInput) amtInput.value = (row.price * row.qty).toFixed(2);
     }
     recalcTotals();
   }
@@ -425,7 +376,6 @@ var FeeSyncWidget = (function () {
     state.rows = state.rows.filter(function (r) { return r.id !== rowId; });
     var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
     if (tr) tr.remove();
-
     document.querySelectorAll('#product-rows-body tr').forEach(function (tr2, i) {
       var numEl = tr2.querySelector('.row-number span:last-child');
       if (numEl) numEl.textContent = i + 1;
@@ -441,20 +391,13 @@ var FeeSyncWidget = (function () {
     return state.rows.findIndex(function (r) { return r.id === rowId; });
   }
 
-  // ─── Add row ───────────────────────────────────────────────────────────────
+  // ─── Add empty row ─────────────────────────────────────────────────────────
   function addEmptyRow() {
     var row = {
-      id:          state.nextRowId++,
-      productId:   '',
-      name:        '',
-      price:       0,
-      qty:         1,
-      taxRate:     0,
-      taxIncluded: false,
-      typeOfCost:  '',
-      payments:    '',
-      sort:        state.rows.length * 10,
-      spaId:       null
+      id: state.nextRowId++, productId: '', name: '',
+      price: 0, qty: 1, taxRate: 0, taxIncluded: false,
+      typeOfCost: '', payments: '',
+      sort: state.rows.length * 10, spaId: null
     };
     state.rows.push(row);
     var tbody = document.getElementById('product-rows-body');
@@ -463,9 +406,7 @@ var FeeSyncWidget = (function () {
   }
 
   // ─── Product picker modal ──────────────────────────────────────────────────
-  function openProductSelector() {
-    showProductPickerModal();
-  }
+  function openProductSelector() { showProductPickerModal(); }
 
   function showProductPickerModal() {
     var existing = document.getElementById('product-picker-modal');
@@ -473,32 +414,17 @@ var FeeSyncWidget = (function () {
 
     var overlay = document.createElement('div');
     overlay.id = 'product-picker-modal';
-    overlay.style.cssText = [
-      'position:fixed;top:0;left:0;right:0;bottom:0;',
-      'background:rgba(0,0,0,0.45);z-index:9999;',
-      'display:flex;align-items:center;justify-content:center;'
-    ].join('');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
     var modal = document.createElement('div');
-    modal.style.cssText = [
-      'background:#fff;border-radius:8px;padding:24px;',
-      'width:680px;max-width:95vw;max-height:80vh;',
-      'display:flex;flex-direction:column;gap:12px;',
-      'box-shadow:0 8px 32px rgba(0,0,0,0.18);',
-      'font-family:"Open Sans",Arial,sans-serif;font-size:13px;'
-    ].join('');
+    modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:680px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;';
 
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
-    header.innerHTML = [
-      '<strong style="font-size:15px;color:#333">Select Product from Catalog</strong>',
-      '<button id="picker-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>'
-    ].join('');
+    header.innerHTML = '<strong style="font-size:15px;color:#333">Select Product from Catalog</strong><button id="picker-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>';
 
     var searchBox = document.createElement('input');
-    searchBox.type        = 'text';
-    searchBox.placeholder = 'Search products…';
-    searchBox.className   = 'input-bx';
+    searchBox.type = 'text'; searchBox.placeholder = 'Search products…'; searchBox.className = 'input-bx';
 
     var filterBar = document.createElement('div');
     filterBar.style.cssText = 'display:flex;gap:8px;';
@@ -510,45 +436,33 @@ var FeeSyncWidget = (function () {
       '</select>',
       '<select id="picker-filter-payments" class="input-bx select-bx" style="flex:1">',
         '<option value="">All Payment Types</option>',
-        '<option value="193">Annually</option>',
-        '<option value="195">One Time</option>',
-        '<option value="197">Quarterly</option>',
-        '<option value="199">Every 2 years</option>',
+        '<option value="193">Annually</option><option value="195">One Time</option>',
+        '<option value="197">Quarterly</option><option value="199">Every 2 years</option>',
         '<option value="201">Monthly</option>',
       '</select>'
     ].join('');
 
     var tableWrap = document.createElement('div');
     tableWrap.style.cssText = 'overflow-y:auto;flex:1;border:1px solid #e2e5ec;border-radius:4px;';
-
-    var table = document.createElement('table');
-    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;';
-    table.innerHTML = [
-      '<thead>',
-        '<tr style="background:#f7f9fa;position:sticky;top:0">',
-          '<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:36px"></th>',
+    tableWrap.innerHTML = [
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;">',
+        '<thead><tr style="background:#f7f9fa;position:sticky;top:0">',
+          '<th style="padding:8px 10px;width:36px;border-bottom:1px solid #e2e5ec"></th>',
           '<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec">Name</th>',
           '<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:100px">Price</th>',
           '<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:130px">Type of Cost</th>',
           '<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:100px">Payments</th>',
-        '</tr>',
-      '</thead>',
-      '<tbody id="picker-tbody"></tbody>'
+        '</tr></thead>',
+        '<tbody id="picker-tbody"></tbody>',
+      '</table>'
     ].join('');
-    tableWrap.appendChild(table);
 
     var footer = document.createElement('div');
     footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid #e2e5ec;';
-    footer.innerHTML = [
-      '<button id="picker-add-selected" class="btn-primary-bx" disabled>Add Selected</button>',
-      '<button id="picker-cancel" class="btn-secondary-bx">Cancel</button>'
-    ].join('');
+    footer.innerHTML = '<button id="picker-add-selected" class="btn-primary-bx" disabled>Add Selected</button><button id="picker-cancel" class="btn-secondary-bx">Cancel</button>';
 
-    modal.appendChild(header);
-    modal.appendChild(searchBox);
-    modal.appendChild(filterBar);
-    modal.appendChild(tableWrap);
-    modal.appendChild(footer);
+    modal.appendChild(header); modal.appendChild(searchBox); modal.appendChild(filterBar);
+    modal.appendChild(tableWrap); modal.appendChild(footer);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
@@ -582,64 +496,48 @@ var FeeSyncWidget = (function () {
         var price = parseFloat(p.PRICE || p.price || 0).toFixed(2);
         var toc   = PROP_TYPE_OF_COST[getPropValue(p, 'PROPERTY_111')] || '—';
         var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
-        var chk   = selected[pid] ? 'checked' : '';
 
         var tr2 = document.createElement('tr');
         tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;' + (selected[pid] ? 'background:#f0f8ff;' : '');
         tr2.innerHTML = [
-          '<td style="padding:8px 10px;text-align:center">',
-            '<input type="checkbox" ' + chk + ' data-pid="' + pid + '">',
-          '</td>',
-          '<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + '</td>',
-          '<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
+          '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (selected[pid] ? 'checked' : '') + ' data-pid="' + pid + '"></td>',
+          '<td style="padding:8px 10px;font-weight:600;color:#333">'  + escHtml(pname) + '</td>',
+          '<td style="padding:8px 10px;color:#535c69">Dh ' + price    + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
         ].join('');
 
         tr2.querySelector('input[type=checkbox]').addEventListener('change', function (e) {
-          if (e.target.checked) {
-            selected[pid] = p;
-            tr2.style.background = '#f0f8ff';
-          } else {
-            delete selected[pid];
-            tr2.style.background = '';
-          }
+          if (e.target.checked) { selected[pid] = p; tr2.style.background = '#f0f8ff'; }
+          else { delete selected[pid]; tr2.style.background = ''; }
           document.getElementById('picker-add-selected').disabled = Object.keys(selected).length === 0;
         });
         tr2.addEventListener('click', function (e) {
           if (e.target.tagName === 'INPUT') return;
           var cb = tr2.querySelector('input[type=checkbox]');
-          cb.checked = !cb.checked;
-          cb.dispatchEvent(new Event('change'));
+          cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
         });
-
         tbody2.appendChild(tr2);
       });
     }
 
     renderPickerRows();
-
     searchBox.addEventListener('input', renderPickerRows);
     document.getElementById('picker-filter-type').addEventListener('change', renderPickerRows);
     document.getElementById('picker-filter-payments').addEventListener('change', renderPickerRows);
-
     document.getElementById('picker-close').addEventListener('click',  function () { overlay.remove(); });
     document.getElementById('picker-cancel').addEventListener('click', function () { overlay.remove(); });
 
     document.getElementById('picker-add-selected').addEventListener('click', function () {
       Object.values(selected).forEach(function (p) {
         var row = {
-          id:          state.nextRowId++,
-          productId:   String(p.ID || p.id),
-          name:        p.NAME || p.name || '',
-          price:       parseFloat(p.PRICE || p.price || 0),
-          qty:         1,
-          taxRate:     0,
-          taxIncluded: false,
-          typeOfCost:  getPropValue(p, 'PROPERTY_111'),
-          payments:    getPropValue(p, 'PROPERTY_109'),
-          sort:        state.rows.length * 10,
-          spaId:       null
+          id: state.nextRowId++, productId: String(p.ID || p.id),
+          name:  p.NAME || p.name || '',
+          price: parseFloat(p.PRICE || p.price || 0),
+          qty: 1, taxRate: 0, taxIncluded: false,
+          typeOfCost: getPropValue(p, 'PROPERTY_111'),
+          payments:   getPropValue(p, 'PROPERTY_109'),
+          sort: state.rows.length * 10, spaId: null
         };
         state.rows.push(row);
         var tbody3 = document.getElementById('product-rows-body');
@@ -649,9 +547,7 @@ var FeeSyncWidget = (function () {
       overlay.remove();
     });
 
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   }
 
   // ─── Totals ────────────────────────────────────────────────────────────────
@@ -673,10 +569,7 @@ var FeeSyncWidget = (function () {
       if (taxEl)   row.taxRate   = parseFloat(taxEl.value)   || 0;
       if (nameEl)  row.name      = nameEl.value;
       if (selEl)   row.productId = selEl.value;
-
-      // FIX 1: Only overwrite enum fields when the user has actually selected
-      // a value. Unconditional assignment wiped catalog-loaded values when the
-      // <select> had no matching option (value === "").
+      // Only overwrite when user has actually picked a value (FIX 1)
       if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
       if (payEl && payEl.value) row.payments   = payEl.value;
 
@@ -708,17 +601,12 @@ var FeeSyncWidget = (function () {
     recalcTotals();
 
     var rows = collectRowData();
-    if (rows.length === 0) {
-      setStatus('No products to save', 'status-warning');
-      return;
-    }
+    if (rows.length === 0) { setStatus('No products to save', 'status-warning'); return; }
 
     log('Saving ' + rows.length + ' product row(s) to ' + state.entityType + ' #' + state.entityId);
-
-    console.log('[FeeSyncWidget] Pre-save row values:');
-    rows.forEach(function (r) {
-      console.log({ productId: r.productId, name: r.name, typeOfCost: r.typeOfCost, payments: r.payments });
-    });
+    console.log('[FeeSyncWidget] Pre-save rows:', JSON.stringify(rows.map(function(r){
+      return { productId: r.productId, name: r.name, typeOfCost: r.typeOfCost, payments: r.payments };
+    })));
 
     var method = state.entityType === 'deal'
       ? 'crm.deal.productrows.set'
@@ -736,16 +624,12 @@ var FeeSyncWidget = (function () {
       };
     });
 
-    BX24.callMethod(method, {
-      id:   state.entityId,
-      rows: productRows
-    }, function (res) {
+    BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
       if (res.error()) {
         setStatus('Error saving products: ' + res.error(), 'status-danger');
         log('Error: ' + res.error());
         return;
       }
-
       log('Product rows saved OK');
 
       updateCatalogProducts(rows, function () {
@@ -765,54 +649,67 @@ var FeeSyncWidget = (function () {
     return state.rows.filter(function (r) { return r.name || r.productId; });
   }
 
-  // ─── Update catalog products with property values ──────────────────────────
+  // ─── Update catalog products via catalog.product.update ───────────────────
+  // Per official docs (catalog.product.update):
+  //   propertyN: { value: "enumOptionId", valueId: existingValueId }
+  //   If valueId is omitted/0, the existing value is replaced by the new one.
+  //   Property keys are camelCase: property111, property109, etc.
+  // ──────────────────────────────────────────────────────────────────────────
   function updateCatalogProducts(rows, cb) {
-    // FIX 3: Exclude rows with no productId (manually typed names).
-    // Calling crm.product.update with id="" causes an API error.
-    var productsToUpdate = rows.filter(function (r) {
+    // Only rows that have a catalog product ID AND at least one property to set
+    var toUpdate = rows.filter(function (r) {
       return r.productId && (r.typeOfCost || r.payments);
     });
 
-    if (productsToUpdate.length === 0) {
-      if (cb) cb();
-      return;
-    }
+    if (toUpdate.length === 0) { if (cb) cb(); return; }
 
-    log('Updating ' + productsToUpdate.length + ' catalog product(s) with properties');
-    var pending = productsToUpdate.length;
+    log('Updating ' + toUpdate.length + ' catalog product(s) via catalog.product.update');
+    var pending = toUpdate.length;
 
-    productsToUpdate.forEach(function (row) {
-      var fields = {};
+    toUpdate.forEach(function (row) {
+      // First fetch the current product via catalog.product.get to get existing
+      // valueIds (needed for update format). If it fails we fall back to valueId=0.
+      BX24.callMethod('catalog.product.get', { id: row.productId }, function (getRes) {
+        var fields = {};
 
-      // ── FIX 5: crm.product.* list-type properties must be written as:
-      //           [{ id: 0, value: "<enumOptionId>" }]
-      //
-      //   - id: 0   → "new assignment" (not updating a specific multi-value
-      //               record by its record ID)
-      //   - value   → the enum option ID as a string ("207", "209", "193" …)
-      //
-      //   This is the format the legacy iblock REST API expects.
-      //   The { VALUE: "..." } format (v3) was wrong and caused a 400 error:
-      //   "Wrong format value of field `PROPERTY_111`"
-      if (row.typeOfCost) {
-        fields['PROPERTY_111'] = [{ id: 0, value: String(row.typeOfCost) }];
-      }
-      if (row.payments) {
-        fields['PROPERTY_109'] = [{ id: 0, value: String(row.payments) }];
-      }
+        if (!getRes.error()) {
+          var prod = getRes.data() && (getRes.data().element || getRes.data());
 
-      console.log('[FeeSyncWidget] crm.product.update #' + row.productId, JSON.stringify(fields));
+          // catalog.product.get returns properties as:
+          //   property111: { value: "Government Cost", valueId: "12345" }
+          // We need the valueId to send back in the update.
+          // If property was never set, valueId will be null/undefined — use 0.
 
-      BX24.callMethod('crm.product.update', {
-        id:     row.productId,
-        fields: fields
-      }, function (res) {
-        if (res.error()) {
-          log('Error updating product #' + row.productId + ': ' + res.error());
+          if (row.typeOfCost) {
+            var toc    = prod ? (prod['property111'] || prod['PROPERTY_111']) : null;
+            var tocVid = (toc && toc.valueId) ? toc.valueId : 0;
+            fields['property111'] = { value: String(row.typeOfCost), valueId: tocVid };
+          }
+          if (row.payments) {
+            var pay    = prod ? (prod['property109'] || prod['PROPERTY_109']) : null;
+            var payVid = (pay && pay.valueId) ? pay.valueId : 0;
+            fields['property109'] = { value: String(row.payments), valueId: payVid };
+          }
         } else {
-          log('Product #' + row.productId + ' updated with properties');
+          // Fallback: valueId=0 means "replace existing value"
+          log('catalog.product.get failed for #' + row.productId + ', using valueId=0');
+          if (row.typeOfCost) fields['property111'] = { value: String(row.typeOfCost), valueId: 0 };
+          if (row.payments)   fields['property109'] = { value: String(row.payments),   valueId: 0 };
         }
-        if (--pending === 0 && cb) cb();
+
+        console.log('[FeeSyncWidget] catalog.product.update #' + row.productId, JSON.stringify(fields));
+
+        BX24.callMethod('catalog.product.update', {
+          id:     row.productId,
+          fields: fields
+        }, function (res) {
+          if (res.error()) {
+            log('Error updating product #' + row.productId + ': ' + res.error());
+          } else {
+            log('Product #' + row.productId + ' updated OK via catalog.product.update');
+          }
+          if (--pending === 0 && cb) cb();
+        });
       });
     });
   }
@@ -835,14 +732,9 @@ var FeeSyncWidget = (function () {
     var govRows   = rows.filter(function (r) { return r.typeOfCost === '207'; });
     var otherRows = rows.filter(function (r) { return r.typeOfCost !== '209' && r.typeOfCost !== '207'; });
 
-    // FIX 4: Log rows that have no typeOfCost so they are visible in debug.
     if (otherRows.length > 0) {
       log('Skipping ' + otherRows.length + ' row(s) with no Type of Cost (not synced to SPA)');
-      otherRows.forEach(function (r) {
-        console.warn('[FeeSyncWidget] Row skipped (no typeOfCost):', { productId: r.productId, name: r.name });
-      });
     }
-
     log('Syncing ' + profRows.length + ' Prof Fee SPA item(s), ' + govRows.length + ' Gov Cost SPA item(s)');
 
     syncSpaGroup(1058, SPA_PROF_FIELDS, DEAL_PROF_FIELD, profRows, function () {
@@ -851,122 +743,74 @@ var FeeSyncWidget = (function () {
   }
 
   function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
-  if (rows.length === 0) { if (cb) cb(); return; }
+    if (rows.length === 0) { if (cb) cb(); return; }
 
-  var spaIds = [];
-  var pending = rows.length;
+    var spaIds  = [];
+    var pending = rows.length;
 
-  rows.forEach(function (row) {
-    var fields = buildSpaFields(row, fieldMap);
-    var payload = Object.assign({
-      title: row.name || '',
-      opportunity: row.price || 0
-    }, fields);
+    rows.forEach(function (row) {
+      var fields = buildSpaFields(row, fieldMap);
+      console.log('[FeeSyncWidget] SPA Payload (entityTypeId=' + entityTypeId + '):', JSON.stringify(
+        Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields), null, 2
+      ));
 
-    console.log('[FeeSyncWidget] SPA Payload (entityTypeId=' + entityTypeId + '):', JSON.stringify(payload, null, 2));
-
-    if (row.spaId) {
-      BX24.callMethod('crm.item.update', {
-        entityTypeId: entityTypeId,
-        id: row.spaId,
-        fields: payload
-      }, function (res) {
-        if (res.error()) log('SPA update error: ' + res.error());
-        else {
-          log('SPA item #' + row.spaId + ' updated (type ' + entityTypeId + ')');
-          spaIds.push(row.spaId);
-        }
-        if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
-      });
-    } else {
-      BX24.callMethod('crm.item.add', {
-        entityTypeId: entityTypeId,
-        fields: payload
-      }, function (res) {
-        if (res.error()) {
-          log('SPA create error: ' + res.error());
-        } else {
-          var newId = (res.data() && res.data().item) ? res.data().item.id : null;
-          if (newId) {
-            row.spaId = newId;
-            spaIds.push(newId);
-            log('SPA item created #' + newId + ' (type ' + entityTypeId + ')');
+      if (row.spaId) {
+        BX24.callMethod('crm.item.update', {
+          entityTypeId: entityTypeId, id: row.spaId, fields: fields
+        }, function (res) {
+          if (res.error()) log('SPA update error: ' + res.error());
+          else { log('SPA item #' + row.spaId + ' updated (type ' + entityTypeId + ')'); spaIds.push(row.spaId); }
+          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+        });
+      } else {
+        BX24.callMethod('crm.item.add', {
+          entityTypeId: entityTypeId,
+          fields: Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields)
+        }, function (res) {
+          if (res.error()) {
+            log('SPA create error: ' + res.error());
+          } else {
+            var newId = (res.data() && res.data().item) ? res.data().item.id : null;
+            if (newId) { row.spaId = newId; spaIds.push(newId); log('SPA item created #' + newId + ' (type ' + entityTypeId + ')'); }
           }
-        }
-        if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
-      });
-    }
-  });
-}
-
-  // ─── Build SPA fields from row ─────────────────────────────────────────────
- function buildSpaFields(row, fieldMap) {
-  var fields = {};
-
-  var typeOfCost = String(row.typeOfCost || '').trim();
-  var payments   = String(row.payments || '').trim();
-
-  console.log('[FeeSyncWidget] buildSpaFields input:', {
-    typeOfCost: typeOfCost,
-    payments: payments,
-    fieldMap: fieldMap
-  });
-
-  if (typeOfCost) {
-    var tocSpaVal = mapSpaEnumValueById(fieldMap.typeOfCost, typeOfCost);
-    if (tocSpaVal !== undefined) {
-      fields[fieldMap.typeOfCost] = tocSpaVal;
-    } else {
-      console.warn('[FeeSyncWidget] typeOfCost mapping failed for value:', typeOfCost);
-    }
+          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+        });
+      }
+    });
   }
 
-  if (payments) {
-    var paySpaVal = mapSpaEnumValueById(fieldMap.payments, payments);
-    if (paySpaVal !== undefined) {
-      fields[fieldMap.payments] = paySpaVal;
-    } else {
-      console.warn('[FeeSyncWidget] payments mapping failed for value:', payments);
+  function buildSpaFields(row, fieldMap) {
+    var fields = {};
+    if (row.typeOfCost) {
+      var tocVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
+      if (tocVal !== undefined) fields[fieldMap.typeOfCost] = tocVal;
+      else console.warn('[FeeSyncWidget] typeOfCost SPA mapping failed:', row.typeOfCost);
     }
+    if (row.payments) {
+      var payVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
+      if (payVal !== undefined) fields[fieldMap.payments] = payVal;
+      else console.warn('[FeeSyncWidget] payments SPA mapping failed:', row.payments);
+    }
+    return fields;
   }
 
-  console.log('[FeeSyncWidget] buildSpaFields output:', fields);
-  return fields;
-}
-  // ─── Catalog enum ID → SPA enum ID mapping ────────────────────────────────
- function mapSpaEnumValueById(fieldKey, catalogEnumId) {
-  var directMaps = {
-    'ufCrm15_1779367818775': { '209': '445', '207': '447' },
-    'ufCrm15_1779367955682': {
-      '193': '449', '195': '451', '197': '453',
-      '199': '455', '201': '457', '203': '459', '205': '461'
-    },
-    'ufCrm17_1779370162991': { '207': '497', '209': '499' },
-    'ufCrm17_1779370261982': {
-      '193': '501', '195': '503', '197': '505',
-      '199': '507', '201': '509', '203': '511', '205': '513'
-    }
-  };
-
-  var normalized = String(catalogEnumId || '').trim();
-  if (!normalized) return undefined;
-
-  var map = directMaps[fieldKey];
-  if (!map) return undefined;
-
-  return map[normalized] || undefined;
-}
+  function mapSpaEnumValueById(fieldKey, catalogEnumId) {
+    var directMaps = {
+      'ufCrm15_1779367818775': { '209': '445', '207': '447' },
+      'ufCrm15_1779367955682': { '193': '449', '195': '451', '197': '453', '199': '455', '201': '457', '203': '459', '205': '461' },
+      'ufCrm17_1779370162991': { '207': '497', '209': '499' },
+      'ufCrm17_1779370261982': { '193': '501', '195': '503', '197': '505', '199': '507', '201': '509', '203': '511', '205': '513' }
+    };
+    var map = directMaps[fieldKey];
+    if (!map || !catalogEnumId) return undefined;
+    return map[String(catalogEnumId)] || undefined;
+  }
 
   function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
-    if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') {
-      if (cb) cb(); return;
-    }
+    if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') { if (cb) cb(); return; }
     var updateFields = {};
     updateFields[dealLinkField] = spaIds;
-    BX24.callMethod('crm.deal.update', {
-      id:     state.entityId,
-      fields: updateFields
-    }, function (res) {
+    BX24.callMethod('crm.deal.update', { id: state.entityId, fields: updateFields }, function (res) {
       if (res.error()) log('SPA link error: ' + res.error());
       else log('Deal linked to ' + spaIds.length + ' SPA items (type ' + entityTypeId + ')');
       if (cb) cb();
@@ -974,33 +818,23 @@ var FeeSyncWidget = (function () {
   }
 
   // ─── Product Edit/Create Modal ─────────────────────────────────────────────
+  // Uses catalog.product.add / catalog.product.update with correct field names
   function showProductEditModal(productId) {
     var product = productId ? findCatalogProduct(productId) : null;
     var isNew   = !product;
 
     var overlay = document.createElement('div');
     overlay.id = 'product-edit-modal';
-    overlay.style.cssText = [
-      'position:fixed;top:0;left:0;right:0;bottom:0;',
-      'background:rgba(0,0,0,0.45);z-index:10000;',
-      'display:flex;align-items:center;justify-content:center;'
-    ].join('');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
     var modal = document.createElement('div');
-    modal.style.cssText = [
-      'background:#fff;border-radius:8px;padding:24px;',
-      'width:520px;max-width:95vw;',
-      'box-shadow:0 8px 32px rgba(0,0,0,0.18);',
-      'font-family:"Open Sans",Arial,sans-serif;font-size:13px;',
-      'display:flex;flex-direction:column;gap:14px;'
-    ].join('');
+    modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;display:flex;flex-direction:column;gap:14px;';
 
     modal.innerHTML = [
       '<div style="display:flex;justify-content:space-between;align-items:center">',
         '<strong style="font-size:15px;color:#333">' + (isNew ? 'Create New Product' : 'Edit Product') + '</strong>',
         '<button id="edit-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>',
       '</div>',
-
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">',
 
         '<div style="display:flex;flex-direction:column;gap:4px;grid-column:span 2">',
@@ -1010,78 +844,60 @@ var FeeSyncWidget = (function () {
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
-          '<input id="ep-price" type="number" min="0" step="0.01" class="input-bx"',
-            ' value="' + (product ? parseFloat(product.PRICE || product.price || 0) : 0) + '">',
+          '<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Type of Cost</label>',
-          '<select id="ep-type-of-cost" class="input-bx select-bx">',
-            buildEnumOpts([
-              { id: '207', label: 'Government Cost' },
-              { id: '209', label: 'Professional Fees' }
-            ], product ? getPropValue(product, 'PROPERTY_111') : ''),
+          '<select id="ep-type-of-cost" class="input-bx select-bx">' +
+            buildEnumOpts([{id:'207',label:'Government Cost'},{id:'209',label:'Professional Fees'}],
+              product ? getPropValue(product, 'PROPERTY_111') : '') +
           '</select>',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Payments</label>',
-          '<select id="ep-payments" class="input-bx select-bx">',
+          '<select id="ep-payments" class="input-bx select-bx">' +
             buildEnumOpts([
-              { id: '193', label: 'Annually' },
-              { id: '195', label: 'One Time' },
-              { id: '197', label: 'Quarterly' },
-              { id: '199', label: 'Every 2 years' },
-              { id: '201', label: 'Monthly' },
-              { id: '203', label: 'In The Order Of Discussion' },
-              { id: '205', label: 'One time (variable)' }
-            ], product ? getPropValue(product, 'PROPERTY_109') : ''),
+              {id:'193',label:'Annually'},{id:'195',label:'One Time'},{id:'197',label:'Quarterly'},
+              {id:'199',label:'Every 2 years'},{id:'201',label:'Monthly'},
+              {id:'203',label:'In The Order Of Discussion'},{id:'205',label:'One time (variable)'}
+            ], product ? getPropValue(product, 'PROPERTY_109') : '') +
           '</select>',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Company Application Type</label>',
-          '<select id="ep-company-type" class="input-bx select-bx">',
+          '<select id="ep-company-type" class="input-bx select-bx">' +
             buildEnumOpts([
-              { id: '155', label: 'Mainland LLC' },
-              { id: '157', label: 'Free Zone' },
-              { id: '159', label: 'Branch DET' },
-              { id: '161', label: 'Branch FZ' },
-              { id: '163', label: 'Representative Office DET' },
-              { id: '165', label: 'Representative Office FZ' },
-              { id: '167', label: 'Freelance License' }
-            ], product ? getPropValue(product, 'PROPERTY_99') : ''),
+              {id:'155',label:'Mainland LLC'},{id:'157',label:'Free Zone'},{id:'159',label:'Branch DET'},
+              {id:'161',label:'Branch FZ'},{id:'163',label:'Representative Office DET'},
+              {id:'165',label:'Representative Office FZ'},{id:'167',label:'Freelance License'}
+            ], product ? getPropValue(product, 'PROPERTY_99') : '') +
           '</select>',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Visa Type</label>',
-          '<select id="ep-visa-type" class="input-bx select-bx">',
+          '<select id="ep-visa-type" class="input-bx select-bx">' +
             buildEnumOpts([
-              { id: '171', label: 'Investor Visa' },
-              { id: '173', label: 'Employment Visa' },
-              { id: '175', label: 'Golden Visa' },
-              { id: '177', label: 'Property Visa' },
-              { id: '179', label: 'Talent Visa' },
-              { id: '181', label: 'Influencer Visa' },
-              { id: '183', label: 'Family Visa' }
-            ], product ? getPropValue(product, 'PROPERTY_101') : ''),
+              {id:'171',label:'Investor Visa'},{id:'173',label:'Employment Visa'},{id:'175',label:'Golden Visa'},
+              {id:'177',label:'Property Visa'},{id:'179',label:'Talent Visa'},
+              {id:'181',label:'Influencer Visa'},{id:'183',label:'Family Visa'}
+            ], product ? getPropValue(product, 'PROPERTY_101') : '') +
           '</select>',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Visa Status</label>',
-          '<select id="ep-visa-status" class="input-bx select-bx">',
+          '<select id="ep-visa-status" class="input-bx select-bx">' +
             buildEnumOpts([
-              { id: '187', label: 'New' },
-              { id: '189', label: 'Renewal' },
-              { id: '191', label: 'Not Specified' }
-            ], product ? getPropValue(product, 'PROPERTY_103') : ''),
+              {id:'187',label:'New'},{id:'189',label:'Renewal'},{id:'191',label:'Not Specified'}
+            ], product ? getPropValue(product, 'PROPERTY_103') : '') +
           '</select>',
         '</div>',
 
       '</div>',
-
       '<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid #e2e5ec">',
         '<button id="ep-save" class="btn-primary-bx">' + (isNew ? 'Create Product' : 'Save Changes') + '</button>',
         '<button id="ep-cancel" class="btn-secondary-bx">Cancel</button>',
@@ -1099,58 +915,64 @@ var FeeSyncWidget = (function () {
       var name = document.getElementById('ep-name').value.trim();
       if (!name) { alert('Product name is required'); return; }
 
-      var fields = {
-        NAME:        name,
-        PRICE:       parseFloat(document.getElementById('ep-price').value) || 0,
-        CURRENCY_ID: 'AED',
-        ACTIVE:      'Y'
-      };
-
       var toc = document.getElementById('ep-type-of-cost').value;
       var pay = document.getElementById('ep-payments').value;
       var ct  = document.getElementById('ep-company-type').value;
       var vt  = document.getElementById('ep-visa-type').value;
       var vs  = document.getElementById('ep-visa-status').value;
+      var price = parseFloat(document.getElementById('ep-price').value) || 0;
 
-      // ── FIX 5 (same fix applied to the edit/create modal):
-      //    Use [{ id: 0, value: "<enumOptionId>" }] for all list-type properties.
-      //    id: 0 = new assignment; value = the enum option ID as a string.
-      if (toc) fields['PROPERTY_111'] = [{ id: 0, value: String(toc) }];
-      if (pay) fields['PROPERTY_109'] = [{ id: 0, value: String(pay) }];
-      if (ct)  fields['PROPERTY_99']  = [{ id: 0, value: String(ct)  }];
-      if (vt)  fields['PROPERTY_101'] = [{ id: 0, value: String(vt)  }];
-      if (vs)  fields['PROPERTY_103'] = [{ id: 0, value: String(vs)  }];
-
-      var btn         = document.getElementById('ep-save');
-      btn.disabled    = true;
-      btn.textContent = 'Saving…';
+      var btn = document.getElementById('ep-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
 
       if (isNew) {
-        BX24.callMethod('crm.product.add', { fields: fields }, function (res) {
+        // catalog.product.add: properties as plain string per docs
+        // Requires iblockId
+        if (!state.iblockId) {
+          alert('Cannot create product: catalog iblockId not loaded. Refresh and try again.');
+          btn.disabled = false; btn.textContent = 'Create Product';
+          return;
+        }
+        var addFields = {
+          iblockId: state.iblockId,
+          name:     name,
+          active:   'Y'
+        };
+        // For add: plain string value per docs ("property258":"test")
+        if (toc) addFields['property111'] = toc;
+        if (pay) addFields['property109'] = pay;
+        if (ct)  addFields['property99']  = ct;
+        if (vt)  addFields['property101'] = vt;
+        if (vs)  addFields['property103'] = vs;
+
+        console.log('[FeeSyncWidget] catalog.product.add fields:', JSON.stringify(addFields));
+
+        BX24.callMethod('catalog.product.add', { fields: addFields }, function (res) {
           if (res.error()) {
             alert('Error creating product: ' + res.error());
-            btn.disabled    = false;
-            btn.textContent = 'Create Product';
+            btn.disabled = false; btn.textContent = 'Create Product';
             return;
           }
-          var newId = res.data();
+          var newData = res.data();
+          var newId   = newData && (newData.element ? newData.element.id : newData);
           log('Product created #' + newId);
+
+          // Set price via catalog.price.add
+          if (newId && price > 0) {
+            BX24.callMethod('catalog.price.add', {
+              fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
+            }, function () {});
+          }
+
           loadCatalogProducts(function () {
             overlay.remove();
             var newP = findCatalogProduct(newId);
             if (newP) {
               var row = {
-                id:          state.nextRowId++,
-                productId:   String(newId),
-                name:        name,
-                price:       fields.PRICE,
-                qty:         1,
-                taxRate:     0,
-                taxIncluded: false,
-                typeOfCost:  toc,
-                payments:    pay,
-                sort:        state.rows.length * 10,
-                spaId:       null
+                id: state.nextRowId++, productId: String(newId), name: name,
+                price: price, qty: 1, taxRate: 0, taxIncluded: false,
+                typeOfCost: toc, payments: pay,
+                sort: state.rows.length * 10, spaId: null
               };
               state.rows.push(row);
               var tbody4 = document.getElementById('product-rows-body');
@@ -1159,19 +981,48 @@ var FeeSyncWidget = (function () {
             }
           });
         });
+
       } else {
-        BX24.callMethod('crm.product.update', {
-          id:     productId,
-          fields: fields
-        }, function (res) {
-          if (res.error()) {
-            alert('Error updating product: ' + res.error());
-            btn.disabled    = false;
-            btn.textContent = 'Save Changes';
-            return;
+        // catalog.product.update: properties as {value, valueId} per docs
+        // First get current valueIds
+        BX24.callMethod('catalog.product.get', { id: productId }, function (getRes) {
+          var prod       = (!getRes.error() && getRes.data()) ? (getRes.data().element || getRes.data()) : null;
+          var updFields  = { name: name, active: 'Y' };
+
+          function getVid(prod, key) {
+            if (!prod) return 0;
+            var p = prod[key];
+            return (p && p.valueId) ? p.valueId : 0;
           }
-          log('Product #' + productId + ' updated');
-          loadCatalogProducts(function () { overlay.remove(); });
+
+          if (toc) updFields['property111'] = { value: toc, valueId: getVid(prod, 'property111') };
+          if (pay) updFields['property109'] = { value: pay, valueId: getVid(prod, 'property109') };
+          if (ct)  updFields['property99']  = { value: ct,  valueId: getVid(prod, 'property99')  };
+          if (vt)  updFields['property101'] = { value: vt,  valueId: getVid(prod, 'property101') };
+          if (vs)  updFields['property103'] = { value: vs,  valueId: getVid(prod, 'property103') };
+
+          console.log('[FeeSyncWidget] catalog.product.update #' + productId, JSON.stringify(updFields));
+
+          BX24.callMethod('catalog.product.update', { id: productId, fields: updFields }, function (res) {
+            if (res.error()) {
+              alert('Error updating product: ' + res.error());
+              btn.disabled = false; btn.textContent = 'Save Changes';
+              return;
+            }
+            // Update price if changed
+            if (price > 0) {
+              BX24.callMethod('catalog.price.list', { filter: { productId: productId, catalogGroupId: 1 } }, function (pr) {
+                var prices = (!pr.error() && pr.data()) ? pr.data() : [];
+                if (prices.length > 0) {
+                  BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: 'AED' } }, function () {});
+                } else {
+                  BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: 'AED' } }, function () {});
+                }
+              });
+            }
+            log('Product #' + productId + ' updated via catalog.product.update');
+            loadCatalogProducts(function () { overlay.remove(); });
+          });
         });
       }
     });
@@ -1186,11 +1037,10 @@ var FeeSyncWidget = (function () {
       el.parentNode.replaceChild(clone, el);
       clone.addEventListener('click', handler);
     }
-
     rebind('btn-add-product',    addEmptyRow);
     rebind('btn-select-product', openProductSelector);
     rebind('btn-save',           saveAndSync);
-    rebind('btn-edit-product',   function () {
+    rebind('btn-edit-product', function () {
       var activeSelect = document.querySelector('#product-rows-body tr:focus-within .js-product-select')
                       || document.querySelector('#product-rows-body .js-product-select');
       var pid = activeSelect ? activeSelect.value : null;
@@ -1200,11 +1050,7 @@ var FeeSyncWidget = (function () {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   function escHtml(s) {
-    return String(s || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   // ─── Public API ────────────────────────────────────────────────────────────
