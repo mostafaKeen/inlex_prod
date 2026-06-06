@@ -722,11 +722,14 @@ var FeeSyncWidget = (function () {
 
       log('Product rows saved OK');
 
-      var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
-      updateEntityOpportunity(totalAmt, function () {
-        syncSpaItems(rows, function () {
-          setStatus('Saved & synced ✓', 'status-success');
-          log('All done');
+      // Update catalog products with their property values
+      updateCatalogProducts(rows, function () {
+        var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
+        updateEntityOpportunity(totalAmt, function () {
+          syncSpaItems(rows, function () {
+            setStatus('Saved & synced ✓', 'status-success');
+            log('All done');
+          });
         });
       });
     });
@@ -735,6 +738,45 @@ var FeeSyncWidget = (function () {
   function collectRowData() {
     recalcTotals();
     return state.rows.filter(function (r) { return r.name || r.productId; });
+  }
+
+  // ─── Update catalog products with property values ──────────────────────────
+  function updateCatalogProducts(rows, cb) {
+    var productsToUpdate = rows.filter(function (r) {
+      return r.productId && (r.typeOfCost || r.payments);
+    });
+
+    if (productsToUpdate.length === 0) {
+      if (cb) cb();
+      return;
+    }
+
+    log('Updating ' + productsToUpdate.length + ' catalog product(s) with properties');
+    var pending = productsToUpdate.length;
+
+    productsToUpdate.forEach(function (row) {
+      var fields = {};
+
+      // Add property values if they have been set
+      if (row.typeOfCost) {
+        fields['PROPERTY_111'] = [{ id: parseInt(row.typeOfCost, 10) }];
+      }
+      if (row.payments) {
+        fields['PROPERTY_109'] = [{ id: parseInt(row.payments, 10) }];
+      }
+
+      BX24.callMethod('crm.product.update', {
+        id:     row.productId,
+        fields: fields
+      }, function (res) {
+        if (res.error()) {
+          log('Error updating product #' + row.productId + ': ' + res.error());
+        } else {
+          log('Product #' + row.productId + ' updated with properties');
+        }
+        if (--pending === 0 && cb) cb();
+      });
+    });
   }
 
   function updateEntityOpportunity(amount, cb) {
