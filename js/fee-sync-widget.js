@@ -806,35 +806,41 @@ var FeeSyncWidget = (function () {
 
   function buildSpaFields(row, fieldMap) {
     var fields = {};
+    // Map catalog enum option IDs directly to SPA enum option IDs.
+    // row.typeOfCost and row.payments hold the catalog PROPERTY_ enum IDs (e.g. "207").
     if (row.typeOfCost) {
-      fields[fieldMap.typeOfCost] = mapSpaEnumValue(fieldMap.typeOfCost, PROP_TYPE_OF_COST[row.typeOfCost]);
+      var tocSpaVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
+      if (tocSpaVal !== undefined) fields[fieldMap.typeOfCost] = tocSpaVal;
     }
     if (row.payments) {
-      fields[fieldMap.payments] = mapSpaEnumValue(fieldMap.payments, PROP_PAYMENTS[row.payments]);
+      var paySpaVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
+      if (paySpaVal !== undefined) fields[fieldMap.payments] = paySpaVal;
     }
     return fields;
   }
 
-  function mapSpaEnumValue(fieldKey, labelValue) {
-    var spaEnumMaps = {
-      'ufCrm15_1779367818775': { 'Professional Fees': '445', 'Government Cost': '447' },
+  // Maps catalog PROPERTY_ enum IDs directly to SPA list field enum IDs.
+  // Replaces the old label-to-ID double-lookup that silently broke on string mismatches.
+  function mapSpaEnumValueById(fieldKey, catalogEnumId) {
+    // SPA 1058 (Professional Fees):
+    //   typeOfCost: catalog 209(ProfFees)->SPA 445, catalog 207(GovCost)->SPA 447
+    // SPA 1062 (Government Fees):
+    //   typeOfCost: catalog 207(GovCost)->SPA 497, catalog 209(ProfFees)->SPA 499
+    var directMaps = {
+      'ufCrm15_1779367818775': { '209': '445', '207': '447' },
       'ufCrm15_1779367955682': {
-        'Annually': '449', 'One Time': '451', 'Quarterly': '453',
-        'Every 2 years': '455', 'Monthly': '457',
-        'In The Order Of Discussion': '459',
-        'One time (the cost depends on the number of transactions)': '461'
+        '193': '449', '195': '451', '197': '453',
+        '199': '455', '201': '457', '203': '459', '205': '461'
       },
-      'ufCrm17_1779370162991': { 'Government Cost': '497', 'Professional Fees': '499' },
+      'ufCrm17_1779370162991': { '207': '497', '209': '499' },
       'ufCrm17_1779370261982': {
-        'Annually': '501', 'One Time': '503', 'Quarterly': '505',
-        'Every 2 years': '507', 'Monthly': '509',
-        'In The Order Of Discussion': '511',
-        'One time (the cost depends on the number of transactions)': '513'
+        '193': '501', '195': '503', '197': '505',
+        '199': '507', '201': '509', '203': '511', '205': '513'
       }
     };
-    var map = spaEnumMaps[fieldKey];
-    if (!map || !labelValue) return undefined;
-    return map[labelValue] || undefined;
+    var map = directMaps[fieldKey];
+    if (!map || !catalogEnumId) return undefined;
+    return map[String(catalogEnumId)] || undefined;
   }
 
   function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
@@ -995,11 +1001,13 @@ var FeeSyncWidget = (function () {
       var vt   = document.getElementById('ep-visa-type').value;
       var vs   = document.getElementById('ep-visa-status').value;
 
-      if (toc) propFields['PROPERTY_111'] = toc;
-      if (pay) propFields['PROPERTY_109'] = pay;
-      if (ct)  propFields['PROPERTY_99']  = ct;
-      if (vt)  propFields['PROPERTY_101'] = vt;
-      if (vs)  propFields['PROPERTY_103'] = vs;
+      // Bitrix24 list-type properties must be sent as integer enum option IDs,
+      // not plain strings. Pass the numeric ID directly.
+      if (toc) propFields['PROPERTY_111'] = parseInt(toc, 10);
+      if (pay) propFields['PROPERTY_109'] = parseInt(pay, 10);
+      if (ct)  propFields['PROPERTY_99']  = parseInt(ct,  10);
+      if (vt)  propFields['PROPERTY_101'] = parseInt(vt,  10);
+      if (vs)  propFields['PROPERTY_103'] = parseInt(vs,  10);
 
       var btn = document.getElementById('ep-save');
       btn.disabled = true;
