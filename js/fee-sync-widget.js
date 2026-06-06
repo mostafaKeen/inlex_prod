@@ -216,25 +216,29 @@ var FeeSyncWidget = (function () {
 
   // ─── Extract property value from product object ────────────────────────────
   function getPropValue(product, propKey) {
-    if (!product) return '';
-    var val = product[propKey];
+  if (!product) return '';
+
+  var val = product[propKey];
+  if (val === undefined || val === null || val === '') return '';
+
+  if (Array.isArray(val)) {
+    val = val[0];
     if (val === undefined || val === null || val === '') return '';
-
-    if (Array.isArray(val)) {
-      val = val[0];
-      if (val === undefined || val === null) return '';
-    }
-
-    if (typeof val === 'object') {
-      // crm.product.list returns list props as [{ id: N, value: "Label" }]
-      if (val.id    !== undefined) return String(val.id);
-      if (val.ID    !== undefined) return String(val.ID);
-      if (val.VALUE !== undefined) return String(val.VALUE);
-      if (val.value !== undefined) return String(val.value);
-    }
-
-    return String(val);
   }
+
+  if (typeof val === 'object') {
+    if (val.id !== undefined) return String(val.id).trim();
+    if (val.ID !== undefined) return String(val.ID).trim();
+    if (val.VALUE_ENUM_ID !== undefined) return String(val.VALUE_ENUM_ID).trim();
+    if (val.enumId !== undefined) return String(val.enumId).trim();
+    if (val.valueId !== undefined) return String(val.valueId).trim();
+    if (val.VALUE !== undefined) return String(val.VALUE).trim();
+    if (val.value !== undefined) return String(val.value).trim();
+    if (val.XML_ID !== undefined) return String(val.XML_ID).trim();
+  }
+
+  return String(val).trim();
+}
 
   function findCatalogProduct(productId) {
     if (!productId) return null;
@@ -847,102 +851,111 @@ var FeeSyncWidget = (function () {
   }
 
   function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
-    if (rows.length === 0) { if (cb) cb(); return; }
+  if (rows.length === 0) { if (cb) cb(); return; }
 
-    var spaIds  = [];
-    var pending = rows.length;
+  var spaIds = [];
+  var pending = rows.length;
 
-    rows.forEach(function (row) {
-      var fields = buildSpaFields(row, fieldMap);
+  rows.forEach(function (row) {
+    var fields = buildSpaFields(row, fieldMap);
+    var payload = Object.assign({
+      title: row.name || '',
+      opportunity: row.price || 0
+    }, fields);
 
-      console.log('[FeeSyncWidget] SPA Payload (entityTypeId=' + entityTypeId + '):', JSON.stringify(
-        Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields), null, 2
-      ));
+    console.log('[FeeSyncWidget] SPA Payload (entityTypeId=' + entityTypeId + '):', JSON.stringify(payload, null, 2));
 
-      if (row.spaId) {
-        BX24.callMethod('crm.item.update', {
-          entityTypeId: entityTypeId,
-          id:           row.spaId,
-          fields:       fields
-        }, function (res) {
-          if (res.error()) log('SPA update error: ' + res.error());
-          else {
-            log('SPA item #' + row.spaId + ' updated (type ' + entityTypeId + ')');
-            spaIds.push(row.spaId);
+    if (row.spaId) {
+      BX24.callMethod('crm.item.update', {
+        entityTypeId: entityTypeId,
+        id: row.spaId,
+        fields: payload
+      }, function (res) {
+        if (res.error()) log('SPA update error: ' + res.error());
+        else {
+          log('SPA item #' + row.spaId + ' updated (type ' + entityTypeId + ')');
+          spaIds.push(row.spaId);
+        }
+        if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+      });
+    } else {
+      BX24.callMethod('crm.item.add', {
+        entityTypeId: entityTypeId,
+        fields: payload
+      }, function (res) {
+        if (res.error()) {
+          log('SPA create error: ' + res.error());
+        } else {
+          var newId = (res.data() && res.data().item) ? res.data().item.id : null;
+          if (newId) {
+            row.spaId = newId;
+            spaIds.push(newId);
+            log('SPA item created #' + newId + ' (type ' + entityTypeId + ')');
           }
-          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
-        });
-      } else {
-        BX24.callMethod('crm.item.add', {
-          entityTypeId: entityTypeId,
-          fields:       Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields)
-        }, function (res) {
-          if (res.error()) {
-            log('SPA create error: ' + res.error());
-          } else {
-            var newId = (res.data() && res.data().item) ? res.data().item.id : null;
-            if (newId) {
-              row.spaId = newId;
-              spaIds.push(newId);
-              log('SPA item created #' + newId + ' (type ' + entityTypeId + ')');
-            }
-          }
-          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
-        });
-      }
-    });
-  }
+        }
+        if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+      });
+    }
+  });
+}
 
   // ─── Build SPA fields from row ─────────────────────────────────────────────
-  function buildSpaFields(row, fieldMap) {
-    var fields = {};
+ function buildSpaFields(row, fieldMap) {
+  var fields = {};
 
-    console.log('[FeeSyncWidget] buildSpaFields input:', {
-      typeOfCost: row.typeOfCost,
-      payments:   row.payments,
-      fieldMap:   fieldMap
-    });
+  var typeOfCost = String(row.typeOfCost || '').trim();
+  var payments   = String(row.payments || '').trim();
 
-    if (row.typeOfCost) {
-      var tocSpaVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
-      if (tocSpaVal !== undefined) {
-        fields[fieldMap.typeOfCost] = tocSpaVal;
-      } else {
-        console.warn('[FeeSyncWidget] typeOfCost mapping failed for value:', row.typeOfCost);
-      }
+  console.log('[FeeSyncWidget] buildSpaFields input:', {
+    typeOfCost: typeOfCost,
+    payments: payments,
+    fieldMap: fieldMap
+  });
+
+  if (typeOfCost) {
+    var tocSpaVal = mapSpaEnumValueById(fieldMap.typeOfCost, typeOfCost);
+    if (tocSpaVal !== undefined) {
+      fields[fieldMap.typeOfCost] = tocSpaVal;
+    } else {
+      console.warn('[FeeSyncWidget] typeOfCost mapping failed for value:', typeOfCost);
     }
-
-    if (row.payments) {
-      var paySpaVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
-      if (paySpaVal !== undefined) {
-        fields[fieldMap.payments] = paySpaVal;
-      } else {
-        console.warn('[FeeSyncWidget] payments mapping failed for value:', row.payments);
-      }
-    }
-
-    console.log('[FeeSyncWidget] buildSpaFields output:', fields);
-    return fields;
   }
 
+  if (payments) {
+    var paySpaVal = mapSpaEnumValueById(fieldMap.payments, payments);
+    if (paySpaVal !== undefined) {
+      fields[fieldMap.payments] = paySpaVal;
+    } else {
+      console.warn('[FeeSyncWidget] payments mapping failed for value:', payments);
+    }
+  }
+
+  console.log('[FeeSyncWidget] buildSpaFields output:', fields);
+  return fields;
+}
   // ─── Catalog enum ID → SPA enum ID mapping ────────────────────────────────
-  function mapSpaEnumValueById(fieldKey, catalogEnumId) {
-    var directMaps = {
-      'ufCrm15_1779367818775': { '209': '445', '207': '447' },
-      'ufCrm15_1779367955682': {
-        '193': '449', '195': '451', '197': '453',
-        '199': '455', '201': '457', '203': '459', '205': '461'
-      },
-      'ufCrm17_1779370162991': { '207': '497', '209': '499' },
-      'ufCrm17_1779370261982': {
-        '193': '501', '195': '503', '197': '505',
-        '199': '507', '201': '509', '203': '511', '205': '513'
-      }
-    };
-    var map = directMaps[fieldKey];
-    if (!map || !catalogEnumId) return undefined;
-    return map[String(catalogEnumId)] || undefined;
-  }
+ function mapSpaEnumValueById(fieldKey, catalogEnumId) {
+  var directMaps = {
+    'ufCrm15_1779367818775': { '209': '445', '207': '447' },
+    'ufCrm15_1779367955682': {
+      '193': '449', '195': '451', '197': '453',
+      '199': '455', '201': '457', '203': '459', '205': '461'
+    },
+    'ufCrm17_1779370162991': { '207': '497', '209': '499' },
+    'ufCrm17_1779370261982': {
+      '193': '501', '195': '503', '197': '505',
+      '199': '507', '201': '509', '203': '511', '205': '513'
+    }
+  };
+
+  var normalized = String(catalogEnumId || '').trim();
+  if (!normalized) return undefined;
+
+  var map = directMaps[fieldKey];
+  if (!map) return undefined;
+
+  return map[normalized] || undefined;
+}
 
   function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
     if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') {
