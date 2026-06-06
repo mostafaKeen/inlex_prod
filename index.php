@@ -374,12 +374,37 @@
 	<!-- Reuse same widget JS logic but handle dynamic entity swapping -->
 	<script src="js/fee-sync-widget.js"></script>
 	<script>
-		// Initialize selector for the main page
 		BX24.init(function () {
 			BX24.fitWindow();
 			
 			var selectEl = document.getElementById('select-entity');
-			
+			var info = BX24.placement.info();
+			var detectedType = null;
+			var detectedId = null;
+
+			// Check if we are opened inside a Deal or Lead placement context
+			if (info && info.placement) {
+				if (info.placement.indexOf('DEAL') !== -1) {
+					detectedType = 'deal';
+				} else if (info.placement.indexOf('LEAD') !== -1) {
+					detectedType = 'lead';
+				}
+				if (info.options && info.options.ID) {
+					detectedId = parseInt(info.options.ID);
+				}
+			}
+
+			function selectAndLoad(entityVal) {
+				document.getElementById('editor-content').style.display = 'block';
+				document.getElementById('empty-state').style.display = 'none';
+				
+				var parts = entityVal.split('-');
+				var entityType = parts[0];
+				var entityId = parseInt(parts[1]);
+				
+				FeeSyncWidget.init(entityType, entityId);
+			}
+
 			// Load Deals
 			BX24.callMethod('crm.deal.list', {
 				select: ['ID', 'TITLE'],
@@ -387,8 +412,14 @@
 			}, function (dealsRes) {
 				var deals = dealsRes.data() || [];
 				deals.forEach(function (deal) {
-					selectEl.innerHTML += '<option value="deal-' + deal.ID + '">Deal: ' + deal.TITLE + ' (#' + deal.ID + ')</option>';
+					var isSelected = (detectedType === 'deal' && detectedId === parseInt(deal.ID)) ? 'selected' : '';
+					selectEl.innerHTML += '<option value="deal-' + deal.ID + '" ' + isSelected + '>Deal: ' + deal.TITLE + ' (#' + deal.ID + ')</option>';
 				});
+				// Auto-select if detected
+				if (detectedType === 'deal' && detectedId) {
+					selectEl.value = 'deal-' + detectedId;
+					selectAndLoad('deal-' + detectedId);
+				}
 			});
 
 			// Load Leads
@@ -398,8 +429,14 @@
 			}, function (leadsRes) {
 				var leads = leadsRes.data() || [];
 				leads.forEach(function (lead) {
-					selectEl.innerHTML += '<option value="lead-' + lead.ID + '">Lead: ' + lead.TITLE + ' (#' + lead.ID + ')</option>';
+					var isSelected = (detectedType === 'lead' && detectedId === parseInt(lead.ID)) ? 'selected' : '';
+					selectEl.innerHTML += '<option value="lead-' + lead.ID + '" ' + isSelected + '>Lead: ' + lead.TITLE + ' (#' + lead.ID + ')</option>';
 				});
+				// Auto-select if detected
+				if (detectedType === 'lead' && detectedId) {
+					selectEl.value = 'lead-' + detectedId;
+					selectAndLoad('lead-' + detectedId);
+				}
 			});
 
 			selectEl.addEventListener('change', function (e) {
@@ -409,15 +446,7 @@
 					document.getElementById('empty-state').style.display = 'block';
 					return;
 				}
-				
-				document.getElementById('editor-content').style.display = 'block';
-				document.getElementById('empty-state').style.display = 'none';
-				
-				var parts = val.split('-');
-				var entityType = parts[0];
-				var entityId = parseInt(parts[1]);
-				
-				FeeSyncWidget.init(entityType, entityId);
+				selectAndLoad(val);
 			});
 		});
 	</script>
