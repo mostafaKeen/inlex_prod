@@ -291,7 +291,7 @@ var FeeSyncWidget = (function () {
         '<select class="input-bx select-bx js-product-select" style="min-width:160px">' + opts + '</select>',
         '<input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="margin-top:4px">',
       '</td>',
-      '<td><div class="img-placeholder" title="Image">+</div></td>',
+      '<td></td>',
       '<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
       '<td><div class="input-bx-wrapper">',
         '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',

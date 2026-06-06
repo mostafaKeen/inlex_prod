@@ -434,7 +434,7 @@
 				<button id="btn-select-product" class="btn-secondary-bx">Select from catalog</button>
 				<button id="btn-edit-product" class="btn-secondary-bx">Edit / Create product</button>
 			</div>
-			<button class="btn-icon-bx" title="More options">•••</button>
+			<!-- <button class="btn-icon-bx" title="More options">•••</button> -->
 		</div>
 
 		<!-- Product grid -->
