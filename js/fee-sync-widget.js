@@ -1001,13 +1001,14 @@ var FeeSyncWidget = (function () {
       var vt   = document.getElementById('ep-visa-type').value;
       var vs   = document.getElementById('ep-visa-status').value;
 
-      // Bitrix24 list-type properties must be sent as integer enum option IDs,
-      // not plain strings. Pass the numeric ID directly.
-      if (toc) propFields['PROPERTY_111'] = parseInt(toc, 10);
-      if (pay) propFields['PROPERTY_109'] = parseInt(pay, 10);
-      if (ct)  propFields['PROPERTY_99']  = parseInt(ct,  10);
-      if (vt)  propFields['PROPERTY_101'] = parseInt(vt,  10);
-      if (vs)  propFields['PROPERTY_103'] = parseInt(vs,  10);
+      // Bitrix24 list-type properties (PROPERTY_*) must be sent as an array
+      // of objects with 'id' field, not plain integers or strings.
+      // This is the correct REST API format for crm.product.add/update
+      if (toc) propFields['PROPERTY_111'] = [{ id: parseInt(toc, 10) }];
+      if (pay) propFields['PROPERTY_109'] = [{ id: parseInt(pay, 10) }];
+      if (ct)  propFields['PROPERTY_99']  = [{ id: parseInt(ct,  10) }];
+      if (vt)  propFields['PROPERTY_101'] = [{ id: parseInt(vt,  10) }];
+      if (vs)  propFields['PROPERTY_103'] = [{ id: parseInt(vs,  10) }];
 
       var btn = document.getElementById('ep-save');
       btn.disabled = true;
