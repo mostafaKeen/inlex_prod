@@ -107,34 +107,29 @@ var FeeSyncWidget = (function () {
   function loadCatalogProducts(cb) {
     var allProducts = [];
 
-    function fetchPage(start) {
-      BX24.callMethod('crm.product.list', {
-        select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
-                 'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-                 'PROPERTY_101', 'PROPERTY_103'],
-        filter: { 'ACTIVE': 'Y' },
-        order:  { 'NAME': 'ASC' },
-        start:  start
-      }, function (res) {
-        if (res.error()) {
-          log('Catalog load error: ' + res.error());
-          state.productCatalog = allProducts;
-          if (cb) cb();
-          return;
-        }
-        var page = res.data() || [];
-        allProducts = allProducts.concat(page);
-        if (res.more()) {
-          fetchPage(res.next());
-        } else {
-          state.productCatalog = allProducts;
-          log('Loaded ' + allProducts.length + ' catalog products');
-          if (cb) cb();
-        }
-      });
-    }
-
-    fetchPage(0);
+    BX24.callMethod('crm.product.list', {
+      select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
+               'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
+               'PROPERTY_101', 'PROPERTY_103'],
+      filter: { 'ACTIVE': 'Y' },
+      order:  { 'NAME': 'ASC' }
+    }, function (res) {
+      if (res.error()) {
+        log('Catalog load error: ' + res.error());
+        state.productCatalog = allProducts;
+        if (cb) cb();
+        return;
+      }
+      var page = res.data() || [];
+      allProducts = allProducts.concat(page);
+      if (res.more()) {
+        res.next();
+      } else {
+        state.productCatalog = allProducts;
+        log('Loaded ' + allProducts.length + ' catalog products');
+        if (cb) cb();
+      }
+    });
   }
 
   // ─── Load existing entity products ────────────────────────────────────────
