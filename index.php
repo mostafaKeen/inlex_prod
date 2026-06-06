@@ -3,305 +3,423 @@
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>How to use Fee SPA Sync</title>
-
-	<!-- Google Fonts -->
+	<title>Product Fee Sync Grid</title>
+	
+	<!-- Modern Typography -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
+	<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+	
+	<script src="//api.bitrix24.com/api/v1/"></script>
+	
 	<style>
-		:root {
-			--bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
-			--card-bg: rgba(255, 255, 255, 0.03);
-			--card-border: rgba(255, 255, 255, 0.08);
-			--text-primary: #f8fafc;
-			--text-secondary: #94a3b8;
-			--accent-blue: #3b82f6;
-			--accent-purple: #a855f7;
-			--accent-emerald: #10b981;
-			--accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #d946ef 100%);
-		}
-
-		* {
-			box-sizing: border-box;
-			margin: 0;
-			padding: 0;
-		}
-
 		body {
-			font-family: 'Inter', sans-serif;
-			background: var(--bg-gradient);
-			color: var(--text-primary);
-			min-height: 100vh;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			padding: 2rem 1rem;
-			overflow-x: hidden;
+			font-family: 'Open Sans', Arial, sans-serif;
+			background-color: #f0f2f5;
+			color: #535c69;
+			margin: 0;
+			padding: 20px;
+			font-size: 13px;
 		}
 
-		.container {
-			max-width: 1100px;
-			width: 100%;
+		.widget-container {
+			background: #ffffff;
+			border-radius: 8px;
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+			padding: 20px;
+			border: 1px solid #e2e5ec;
+			max-width: 1200px;
 			margin: 0 auto;
 		}
 
-		/* Header Section */
-		.header {
-			text-align: center;
-			margin-bottom: 3.5rem;
-			position: relative;
-		}
-
-		.app-badge {
-			display: inline-flex;
+		/* Entity Selector Section */
+		.entity-selector-bar {
+			background: #f7f9fa;
+			border: 1px solid #e2e5ec;
+			border-radius: 6px;
+			padding: 15px;
+			margin-bottom: 20px;
+			display: flex;
 			align-items: center;
-			gap: 0.5rem;
-			background: rgba(16, 185, 129, 0.1);
-			border: 1px solid rgba(16, 185, 129, 0.2);
-			color: var(--accent-emerald);
-			padding: 0.35rem 0.85rem;
-			border-radius: 9999px;
-			font-size: 0.75rem;
-			font-weight: 600;
-			text-transform: uppercase;
-			letter-spacing: 0.05em;
-			margin-bottom: 1rem;
+			gap: 15px;
 		}
 
-		.pulse-dot {
-			width: 6px;
-			height: 6px;
-			background: var(--accent-emerald);
-			border-radius: 50%;
-			box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-			animation: pulse 1.5s infinite;
-		}
-
-		@keyframes pulse {
-			0% {
-				transform: scale(0.95);
-				box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-			}
-			70% {
-				transform: scale(1);
-				box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
-			}
-			100% {
-				transform: scale(0.95);
-				box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-			}
-		}
-
-		.header h1 {
-			font-family: 'Plus Jakarta Sans', sans-serif;
-			font-size: 2.75rem;
+		.entity-selector-bar label {
 			font-weight: 700;
-			line-height: 1.25;
-			background: var(--accent-gradient);
-			-webkit-background-clip: text;
-			-webkit-text-fill-color: transparent;
-			margin-bottom: 0.75rem;
+			color: #535c69;
 		}
 
-		.header p {
-			color: var(--text-secondary);
-			font-size: 1.1rem;
-			max-width: 600px;
-			margin: 0 auto;
+		/* Top Action Bar */
+		.action-bar {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 20px;
 		}
 
-		/* Steps Grid */
-		.steps-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-			gap: 1.75rem;
-			margin-bottom: 3.5rem;
+		.left-actions {
+			display: flex;
+			gap: 10px;
 		}
 
-		.step-card {
-			background: var(--card-bg);
-			border: 1px solid var(--card-border);
-			border-radius: 16px;
-			padding: 2.25rem 2rem;
-			position: relative;
-			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-			backdrop-filter: blur(10px);
-			overflow: hidden;
+		.btn-primary-bx {
+			background-color: #0080ff;
+			color: #ffffff;
+			border: none;
+			border-radius: 4px;
+			padding: 8px 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background-color 0.2s;
+			font-size: 13px;
 		}
 
-		.step-card::before {
-			content: '';
-			position: absolute;
-			top: 0;
-			left: 0;
+		.btn-primary-bx:hover {
+			background-color: #0066cc;
+		}
+
+		.btn-secondary-bx {
+			background-color: #ffffff;
+			color: #535c69;
+			border: 1px solid #c6cdd3;
+			border-radius: 4px;
+			padding: 8px 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s;
+			font-size: 13px;
+		}
+
+		.btn-secondary-bx:hover {
+			background-color: #f5f7f8;
+			border-color: #a8adb2;
+		}
+
+		.btn-icon-bx {
+			background: transparent;
+			border: none;
+			color: #a8adb2;
+			font-size: 18px;
+			cursor: pointer;
+			padding: 4px 8px;
+			border-radius: 4px;
+		}
+
+		.btn-icon-bx:hover {
+			background-color: #f5f7f8;
+			color: #535c69;
+		}
+
+		/* Product Table */
+		.table-responsive {
+			overflow-x: auto;
+			margin-bottom: 25px;
+		}
+
+		.product-table {
 			width: 100%;
-			height: 100%;
-			background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
-			opacity: 0;
-			transition: opacity 0.3s ease;
+			border-collapse: collapse;
+			text-align: left;
 		}
 
-		.step-card:hover {
-			transform: translateY(-5px);
-			border-color: rgba(255, 255, 255, 0.15);
-			box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+		.product-table th {
+			background-color: #f7f9fa;
+			color: #828b95;
+			font-weight: 600;
+			padding: 10px 14px;
+			font-size: 12px;
+			border-bottom: 1px solid #e2e5ec;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
 		}
 
-		.step-card:hover::before {
-			opacity: 1;
+		.product-table td {
+			padding: 12px 14px;
+			border-bottom: 1px solid #eef2f4;
+			vertical-align: middle;
 		}
 
-		.step-icon-wrapper {
-			width: 50px;
-			height: 50px;
-			border-radius: 12px;
+		.row-number {
+			color: #a8adb2;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-weight: 600;
+		}
+
+		.drag-handle {
+			cursor: grab;
+			color: #d0d4da;
+		}
+
+		/* Input Fields matching Bitrix24 styling */
+		.input-bx {
+			border: 1px solid #c6cdd3;
+			border-radius: 4px;
+			padding: 6px 10px;
+			color: #535c69;
+			background-color: #ffffff;
+			width: 100%;
+			font-size: 13px;
+			box-sizing: border-box;
+			outline: none;
+			transition: border-color 0.2s;
+		}
+
+		.input-bx:focus {
+			border-color: #0080ff;
+		}
+
+		.input-bx-wrapper {
+			position: relative;
+			display: flex;
+			align-items: center;
+		}
+
+		.input-bx-suffix {
+			position: absolute;
+			right: 10px;
+			color: #a8adb2;
+			pointer-events: none;
+			font-size: 12px;
+		}
+
+		.input-bx-with-suffix {
+			padding-right: 32px !important;
+		}
+
+		.select-bx {
+			appearance: none;
+			background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23535c69' d='M2 0L0 2h4zm0 5L0 3h4z'/%3E%3C/svg%3E");
+			background-repeat: no-repeat;
+			background-position: right 10px center;
+			background-size: 8px 10px;
+			padding-right: 28px;
+		}
+
+		.img-placeholder {
+			width: 34px;
+			height: 34px;
+			border: 1px dashed #a8adb2;
+			border-radius: 4px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			margin-bottom: 1.5rem;
-			background: rgba(255, 255, 255, 0.05);
-			border: 1px solid rgba(255, 255, 255, 0.08);
-			color: var(--accent-blue);
+			color: #a8adb2;
+			background: #fdfdfd;
+			cursor: pointer;
 		}
 
-		.step-card:nth-child(2) .step-icon-wrapper {
-			color: var(--accent-purple);
+		.img-placeholder:hover {
+			border-color: #0080ff;
+			color: #0080ff;
 		}
 
-		.step-card:nth-child(3) .step-icon-wrapper {
-			color: var(--accent-emerald);
-		}
-
-		.step-number {
-			position: absolute;
-			top: 2rem;
-			right: 2rem;
-			font-family: 'Plus Jakarta Sans', sans-serif;
-			font-size: 3.5rem;
-			font-weight: 800;
-			line-height: 1;
-			color: rgba(255, 255, 255, 0.03);
-			user-select: none;
-			transition: color 0.3s ease;
-		}
-
-		.step-card:hover .step-number {
-			color: rgba(255, 255, 255, 0.06);
-		}
-
-		.step-title {
-			font-family: 'Plus Jakarta Sans', sans-serif;
-			font-size: 1.25rem;
-			font-weight: 600;
-			margin-bottom: 0.75rem;
-			color: var(--text-primary);
-		}
-
-		.step-desc {
-			color: var(--text-secondary);
-			font-size: 0.95rem;
-			line-height: 1.6;
-		}
-
-		/* Status Bar */
-		.status-bar {
-			background: rgba(255, 255, 255, 0.02);
-			border: 1px solid var(--card-border);
-			border-radius: 12px;
-			padding: 1.25rem 1.5rem;
+		/* Totals Block */
+		.totals-container {
 			display: flex;
-			align-items: center;
+			justify-content: flex-end;
+			margin-top: 20px;
+		}
+
+		.totals-box {
+			width: 320px;
+		}
+
+		.total-row {
+			display: flex;
 			justify-content: space-between;
-			flex-wrap: wrap;
-			gap: 1rem;
+			padding: 6px 0;
+			color: #828b95;
+			font-size: 13px;
 		}
 
-		.status-item {
+		.total-row.grand-total {
+			border-top: 1px solid #e2e5ec;
+			margin-top: 8px;
+			padding-top: 12px;
+			color: #333333;
+			font-size: 16px;
+			font-weight: 700;
+		}
+
+		.btn-delete {
+			color: #a8adb2;
+			background: transparent;
+			border: none;
+			cursor: pointer;
+			padding: 4px;
+			border-radius: 4px;
+		}
+
+		.btn-delete:hover {
+			color: #ff5050;
+			background: #fff0f0;
+		}
+
+		/* Status Messages */
+		.status-footer {
 			display: flex;
+			justify-content: space-between;
 			align-items: center;
-			gap: 0.5rem;
-			font-size: 0.85rem;
-			color: var(--text-secondary);
+			margin-top: 20px;
+			padding-top: 15px;
+			border-top: 1px solid #e2e5ec;
 		}
 
-		.status-item strong {
-			color: var(--text-primary);
+		#sync-status {
+			font-weight: 600;
+			padding: 6px 12px;
+			border-radius: 4px;
 		}
 
-		.status-dot {
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: var(--accent-emerald);
-		}
+		.status-info { color: #0066cc; background: #e5f2ff; }
+		.status-success { color: #155724; background: #d4edda; }
+		.status-warning { color: #856404; background: #fff3cd; }
+		.status-danger { color: #721c24; background: #f8d7da; }
 
-		@media (max-width: 768px) {
-			.header h1 {
-				font-size: 2.25rem;
-			}
-			.steps-grid {
-				grid-template-columns: 1fr;
-			}
+		#sync-log {
+			font-size: 11px;
+			color: #828b95;
+			max-height: 80px;
+			overflow-y: auto;
+			margin-top: 8px;
+			width: 100%;
 		}
 	</style>
 </head>
 <body>
-	<div class="container">
-		<div class="header">
-			<div class="app-badge">
-				<div class="pulse-dot"></div>
-				System Connected
-			</div>
-			<h1>Fee SPA Sync Guide</h1>
-			<p>Automate and manage synchronization between Lead / Deal products and Single Page Application (SPA) fee records seamlessly.</p>
+	<div class="widget-container">
+		<!-- Entity Selector dropdown because we are in the main app page -->
+		<div class="entity-selector-bar">
+			<label for="select-entity">Select Deal / Lead:</label>
+			<select id="select-entity" class="input-bx select-bx" style="max-width: 400px;">
+				<option value="">-- Choose Deal or Lead to Edit --</option>
+			</select>
 		</div>
 
-		<div class="steps-grid">
-			<!-- Step 1 -->
-			<div class="step-card">
-				<div class="step-number">01</div>
-				<div class="step-icon-wrapper">
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+		<div id="editor-content" style="display: none;">
+			<div class="action-bar">
+				<div class="left-actions">
+					<button id="btn-add-product" class="btn-primary-bx">Add product</button>
+					<button id="btn-select-product" class="btn-secondary-bx">Select product</button>
 				</div>
-				<h3 class="step-title">Assign Cost Types</h3>
-				<p class="step-desc">Add products to your Deals or Leads and set their <strong>Type of Cost</strong> property (e.g. <em>Government Cost</em> or <em>Professional Cost</em>).</p>
+				<button class="btn-icon-bx">•••</button>
 			</div>
 
-			<!-- Step 2 -->
-			<div class="step-card">
-				<div class="step-number">02</div>
-				<div class="step-icon-wrapper">
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-				</div>
-				<h3 class="step-title">Real-Time Syncing</h3>
-				<p class="step-desc">The widget monitors modifications instantly. Any change to products will auto-sync to <strong>Professional Fees</strong> (SPA 1058) or <strong>Government Fees</strong> (SPA 1062) SPAs.</p>
+			<div class="table-responsive">
+				<table class="product-table">
+					<thead>
+						<tr>
+							<th style="width: 50px;"></th>
+							<th>Product</th>
+							<th style="width: 60px;"></th>
+							<th style="width: 180px;">Type of Cost</th>
+							<th style="width: 150px;">Price</th>
+							<th style="width: 120px;">Payments</th>
+							<th style="width: 130px;">Tax</th>
+							<th style="width: 150px;">Amount</th>
+							<th style="width: 40px;"></th>
+						</tr>
+					</thead>
+					<tbody id="product-rows-body">
+						<!-- Dynamic rows will be inserted here -->
+					</tbody>
+				</table>
 			</div>
 
-			<!-- Step 3 -->
-			<div class="step-card">
-				<div class="step-number">03</div>
-				<div class="step-icon-wrapper">
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>
+			<div class="totals-container">
+				<div class="totals-box">
+					<div class="total-row">
+						<span>Total without discounts and taxes:</span>
+						<strong id="total-raw">Dh0</strong>
+					</div>
+					<div class="total-row">
+						<span>Delivery price:</span>
+						<strong>Dh0</strong>
+					</div>
+					<div class="total-row">
+						<span>Discount amount:</span>
+						<strong>Dh0</strong>
+					</div>
+					<div class="total-row">
+						<span>Total before tax:</span>
+						<strong id="total-before-tax">Dh0</strong>
+					</div>
+					<div class="total-row">
+						<span>Tax total:</span>
+						<strong>Dh0</strong>
+					</div>
+					<div class="total-row grand-total">
+						<span>Total amount:</span>
+						<strong id="total-amount">Dh0</strong>
+					</div>
 				</div>
-				<h3 class="step-title">Bidirectional Updates</h3>
-				<p class="step-desc">Modify SPA item properties like price or quantity directly. Changes sync back to the source Deal/Lead product row automatically.</p>
+			</div>
+
+			<div class="status-footer">
+				<div>
+					<div id="sync-status" class="status-info">Ready</div>
+					<div id="sync-log"></div>
+				</div>
+				<button id="btn-save" class="btn-primary-bx" style="background-color: #2fc6f6;">Save & Sync SPA</button>
 			</div>
 		</div>
 
-		<div class="status-bar">
-			<div class="status-item">
-				<div class="status-dot"></div>
-				Status: <strong>Active</strong>
-			</div>
-			<div class="status-item">
-				Active Placements: <strong>CRM_DEAL_DETAIL_TAB, CRM_LEAD_DETAIL_TAB</strong>
-			</div>
-			<div class="status-item">
-				Version: <strong>1.2.0 (Real-Time)</strong>
-			</div>
+		<div id="empty-state" style="text-align: center; padding: 40px; color: #a8adb2;">
+			Please select a Deal or Lead from the dropdown above to manage products.
 		</div>
 	</div>
+
+	<!-- Reuse same widget JS logic but handle dynamic entity swapping -->
+	<script src="js/fee-sync-widget.js"></script>
+	<script>
+		// Initialize selector for the main page
+		BX24.init(function () {
+			BX24.fitWindow();
+			
+			var selectEl = document.getElementById('select-entity');
+			
+			// Load Deals
+			BX24.callMethod('crm.deal.list', {
+				select: ['ID', 'TITLE'],
+				order: { 'ID': 'DESC' }
+			}, function (dealsRes) {
+				var deals = dealsRes.data() || [];
+				deals.forEach(function (deal) {
+					selectEl.innerHTML += '<option value="deal-' + deal.ID + '">Deal: ' + deal.TITLE + ' (#' + deal.ID + ')</option>';
+				});
+			});
+
+			// Load Leads
+			BX24.callMethod('crm.lead.list', {
+				select: ['ID', 'TITLE'],
+				order: { 'ID': 'DESC' }
+			}, function (leadsRes) {
+				var leads = leadsRes.data() || [];
+				leads.forEach(function (lead) {
+					selectEl.innerHTML += '<option value="lead-' + lead.ID + '">Lead: ' + lead.TITLE + ' (#' + lead.ID + ')</option>';
+				});
+			});
+
+			selectEl.addEventListener('change', function (e) {
+				var val = e.target.value;
+				if (!val) {
+					document.getElementById('editor-content').style.display = 'none';
+					document.getElementById('empty-state').style.display = 'block';
+					return;
+				}
+				
+				document.getElementById('editor-content').style.display = 'block';
+				document.getElementById('empty-state').style.display = 'none';
+				
+				var parts = val.split('-');
+				var entityType = parts[0];
+				var entityId = parseInt(parts[1]);
+				
+				FeeSyncWidget.init(entityType, entityId);
+			});
+		});
+	</script>
 </body>
 </html>
