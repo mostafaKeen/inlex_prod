@@ -186,11 +186,10 @@ var FeeSyncWidget = (function () {
       if (val === undefined || val === null) return '';
     }
     if (typeof val === 'object') {
-      if (val.value !== undefined) return String(val.value);
-      if (val.VALUE !== undefined) return String(val.VALUE);
-      // some versions: { id:"207", value:"Government Cost" } — we want the id
       if (val.id !== undefined)    return String(val.id);
       if (val.ID !== undefined)    return String(val.ID);
+      if (val.value !== undefined) return String(val.value);
+      if (val.VALUE !== undefined) return String(val.VALUE);
     }
     return String(val);
   }
@@ -330,7 +329,7 @@ var FeeSyncWidget = (function () {
   function buildEnumOpts(items, currentVal) {
     var html = '<option value="">-- select --</option>';
     items.forEach(function (item) {
-      var sel = String(currentVal) === String(item.id) ? ' selected' : '';
+      var sel = (String(currentVal) === String(item.id) || String(currentVal).toLowerCase() === String(item.label).toLowerCase()) ? ' selected' : '';
       html += '<option value="' + item.id + '"' + sel + '>' + escHtml(item.label) + '</option>';
     });
     return html;
