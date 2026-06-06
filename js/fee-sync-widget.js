@@ -1,12 +1,14 @@
 /**
- * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX)
+ * Fee Sync Widget — Bitrix24 CRM Product Grid (FINAL FIX v2)
  * Supports: Deal & Lead entities
  * SPA Item Types: 1058 (Professional Fees), 1062 (Government Fees)
- * 
- * ISSUE FIXED:
- * - Property values (typeOfCost, payments) were being lost during buildRowFromEntityRow
- * - Now using BOTH direct product ID lookup AND property extraction from catalog
- * - Properly handles Bitrix24's property response format
+ *
+ * BUG FIXED (v2):
+ * - recalcTotals() was unconditionally overwriting row.typeOfCost and row.payments
+ *   with the DOM select value, which is "" when no option is visually selected.
+ *   This wiped correctly-loaded property values before they reached buildSpaFields().
+ * - Fix: only overwrite typeOfCost/payments when the select has a non-empty value.
+ * - Added console logging in buildSpaFields() and before syncSpaItems() for traceability.
  */
 
 var FeeSyncWidget = (function () {
@@ -158,11 +160,11 @@ var FeeSyncWidget = (function () {
     });
   }
 
-  // ─── FIXED: Build row with proper property extraction ─────────────────────
+  // ─── Build row with proper property extraction ─────────────────────────────
   function buildRowFromEntityRow(r) {
     var catalogItem = findCatalogProduct(r.PRODUCT_ID);
-    
-    // Get property values from catalog (since productrows don't include them)
+
+    // Get property values from catalog (productrows don't include custom properties)
     var typeOfCost = getPropValue(catalogItem, 'PROPERTY_111') || '';
     var payments   = getPropValue(catalogItem, 'PROPERTY_109') || '';
 
@@ -181,9 +183,9 @@ var FeeSyncWidget = (function () {
       _entityRow:  r
     };
 
-    log('Row #' + row.id + ': product=' + row.productId + 
+    log('Row #' + row.id + ': product=' + row.productId +
         ', name=' + row.name +
-        ', typeOfCost=' + row.typeOfCost + 
+        ', typeOfCost=' + row.typeOfCost +
         ', payments=' + row.payments);
 
     return row;
@@ -194,13 +196,13 @@ var FeeSyncWidget = (function () {
     if (!product) return '';
     var val = product[propKey];
     if (val === undefined || val === null || val === '') return '';
-    
+
     // Handle array of values
     if (Array.isArray(val)) {
       val = val[0];
       if (val === undefined || val === null) return '';
     }
-    
+
     // Handle object property values (Bitrix24 wraps them)
     if (typeof val === 'object') {
       if (val.id !== undefined)    return String(val.id);
@@ -208,7 +210,7 @@ var FeeSyncWidget = (function () {
       if (val.value !== undefined) return String(val.value);
       if (val.VALUE !== undefined) return String(val.VALUE);
     }
-    
+
     return String(val);
   }
 
@@ -346,21 +348,21 @@ var FeeSyncWidget = (function () {
 
   function buildEnumOpts(items, currentVal) {
     var html = '<option value="">-- select --</option>';
-    
+
     // Normalize current value
     var normalizedCurrent = String(currentVal || '').trim();
-    
+
     items.forEach(function (item) {
-      var itemId = String(item.id).trim();
+      var itemId    = String(item.id).trim();
       var itemLabel = String(item.label).trim();
-      
+
       // Match by ID (most reliable)
       var isSelected = (itemId === normalizedCurrent);
-      
+
       var sel = isSelected ? ' selected' : '';
       html += '<option value="' + itemId + '"' + sel + '>' + escHtml(itemLabel) + '</option>';
     });
-    
+
     return html;
   }
 
@@ -377,7 +379,7 @@ var FeeSyncWidget = (function () {
       row.typeOfCost = String(getPropValue(catalogItem, 'PROPERTY_111'));
       row.payments   = String(getPropValue(catalogItem, 'PROPERTY_109'));
     }
-    
+
     var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
     if (tr) {
       var newTr = buildRowEl(row, getRowIndex(rowId) + 1);
@@ -407,7 +409,7 @@ var FeeSyncWidget = (function () {
     state.rows = state.rows.filter(function (r) { return r.id !== rowId; });
     var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
     if (tr) tr.remove();
-    
+
     var rows = document.querySelectorAll('#product-rows-body tr');
     rows.forEach(function (tr2, i) {
       var numEl = tr2.querySelector('.row-number span:last-child');
@@ -427,17 +429,17 @@ var FeeSyncWidget = (function () {
   // ─── Add row ───────────────────────────────────────────────────────────────
   function addEmptyRow() {
     var row = {
-      id:         state.nextRowId++,
-      productId:  '',
-      name:       '',
-      price:      0,
-      qty:        1,
-      taxRate:    0,
+      id:          state.nextRowId++,
+      productId:   '',
+      name:        '',
+      price:       0,
+      qty:         1,
+      taxRate:     0,
       taxIncluded: false,
-      typeOfCost: '',
-      payments:   '',
-      sort:       state.rows.length * 10,
-      spaId:      null
+      typeOfCost:  '',
+      payments:    '',
+      sort:        state.rows.length * 10,
+      spaId:       null
     };
     state.rows.push(row);
     var tbody = document.getElementById('product-rows-body');
@@ -538,19 +540,19 @@ var FeeSyncWidget = (function () {
     var selected = {};
 
     function renderPickerRows() {
-      var query = searchBox.value.toLowerCase();
+      var query      = searchBox.value.toLowerCase();
       var filterType = document.getElementById('picker-filter-type').value;
       var filterPay  = document.getElementById('picker-filter-payments').value;
-      var tbody2 = document.getElementById('picker-tbody');
+      var tbody2     = document.getElementById('picker-tbody');
       tbody2.innerHTML = '';
 
       var filtered = state.productCatalog.filter(function (p) {
         var name = (p.NAME || p.name || '').toLowerCase();
         var toc  = String(getPropValue(p, 'PROPERTY_111') || '');
         var pay  = String(getPropValue(p, 'PROPERTY_109') || '');
-        if (query && name.indexOf(query) === -1) return false;
-        if (filterType && toc !== filterType) return false;
-        if (filterPay  && pay !== filterPay)  return false;
+        if (query      && name.indexOf(query) === -1) return false;
+        if (filterType && toc !== filterType)         return false;
+        if (filterPay  && pay !== filterPay)          return false;
         return true;
       });
 
@@ -560,7 +562,7 @@ var FeeSyncWidget = (function () {
       }
 
       filtered.forEach(function (p) {
-        var pid  = String(p.ID || p.id);
+        var pid   = String(p.ID || p.id);
         var pname = p.NAME || p.name || '';
         var price = parseFloat(p.PRICE || p.price || 0).toFixed(2);
         var toc   = PROP_TYPE_OF_COST[getPropValue(p, 'PROPERTY_111')] || '—';
@@ -612,17 +614,17 @@ var FeeSyncWidget = (function () {
     document.getElementById('picker-add-selected').addEventListener('click', function () {
       Object.values(selected).forEach(function (p) {
         var row = {
-          id:         state.nextRowId++,
-          productId:  String(p.ID || p.id),
-          name:       p.NAME || p.name || '',
-          price:      parseFloat(p.PRICE || p.price || 0),
-          qty:        1,
-          taxRate:    0,
+          id:          state.nextRowId++,
+          productId:   String(p.ID || p.id),
+          name:        p.NAME || p.name || '',
+          price:       parseFloat(p.PRICE || p.price || 0),
+          qty:         1,
+          taxRate:     0,
           taxIncluded: false,
-          typeOfCost: getPropValue(p, 'PROPERTY_111'),
-          payments:   getPropValue(p, 'PROPERTY_109'),
-          sort:       state.rows.length * 10,
-          spaId:      null
+          typeOfCost:  getPropValue(p, 'PROPERTY_111'),
+          payments:    getPropValue(p, 'PROPERTY_109'),
+          sort:        state.rows.length * 10,
+          spaId:       null
         };
         state.rows.push(row);
         var tbody3 = document.getElementById('product-rows-body');
@@ -642,8 +644,9 @@ var FeeSyncWidget = (function () {
     var trs = document.querySelectorAll('#product-rows-body tr');
     trs.forEach(function (tr2) {
       var rowId = parseInt(tr2.getAttribute('data-row-id'));
-      var row = findRow(rowId);
+      var row   = findRow(rowId);
       if (!row) return;
+
       var priceEl = tr2.querySelector('.js-price');
       var taxEl   = tr2.querySelector('.js-tax');
       var nameEl  = tr2.querySelector('.js-product-name');
@@ -651,14 +654,19 @@ var FeeSyncWidget = (function () {
       var payEl   = tr2.querySelector('.js-payments');
       var selEl   = tr2.querySelector('.js-product-select');
 
-      if (priceEl) row.price = parseFloat(priceEl.value) || 0;
-      if (taxEl)   row.taxRate = parseFloat(taxEl.value) || 0;
-      if (nameEl)  row.name = nameEl.value;
-      if (tocEl)   row.typeOfCost = tocEl.value;
-      if (payEl)   row.payments = payEl.value;
+      if (priceEl) row.price   = parseFloat(priceEl.value) || 0;
+      if (taxEl)   row.taxRate = parseFloat(taxEl.value)   || 0;
+      if (nameEl)  row.name    = nameEl.value;
       if (selEl)   row.productId = selEl.value;
 
-      var amt = row.price * row.qty;
+      // ── FIX: only overwrite typeOfCost / payments when the user has actually
+      //         selected a value.  Unconditional assignment was wiping the values
+      //         loaded from the catalog whenever the <select> rendered with no
+      //         matching option (i.e. tocEl.value === "").
+      if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
+      if (payEl && payEl.value) row.payments   = payEl.value;
+
+      var amt   = row.price * row.qty;
       var amtEl = tr2.querySelector('.js-amount');
       if (amtEl) amtEl.value = amt.toFixed(2);
     });
@@ -666,7 +674,7 @@ var FeeSyncWidget = (function () {
     var raw = 0, taxTotal = 0;
     state.rows.forEach(function (r) {
       var base = r.price * r.qty;
-      raw += base;
+      raw      += base;
       taxTotal += base * (r.taxRate / 100);
     });
 
@@ -693,6 +701,17 @@ var FeeSyncWidget = (function () {
     }
 
     log('Saving ' + rows.length + ' product row(s) to ' + state.entityType + ' #' + state.entityId);
+
+    // ── Diagnostic: confirm typeOfCost / payments survived recalcTotals() ──
+    console.log('[FeeSyncWidget] Pre-save row values:');
+    rows.forEach(function (r) {
+      console.log({
+        productId:  r.productId,
+        name:       r.name,
+        typeOfCost: r.typeOfCost,
+        payments:   r.payments
+      });
+    });
 
     var method = state.entityType === 'deal'
       ? 'crm.deal.productrows.set'
@@ -722,7 +741,6 @@ var FeeSyncWidget = (function () {
 
       log('Product rows saved OK');
 
-      // Update catalog products with their property values
       updateCatalogProducts(rows, function () {
         var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
         updateEntityOpportunity(totalAmt, function () {
@@ -757,7 +775,6 @@ var FeeSyncWidget = (function () {
     productsToUpdate.forEach(function (row) {
       var fields = {};
 
-      // Add property values if they have been set
       if (row.typeOfCost) {
         fields['PROPERTY_111'] = [{ id: parseInt(row.typeOfCost, 10) }];
       }
@@ -806,11 +823,16 @@ var FeeSyncWidget = (function () {
   function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
     if (rows.length === 0) { if (cb) cb(); return; }
 
-    var spaIds = [];
+    var spaIds  = [];
     var pending = rows.length;
 
     rows.forEach(function (row) {
       var fields = buildSpaFields(row, fieldMap);
+
+      // ── Diagnostic: log exact payload before every API call ──
+      console.log('[FeeSyncWidget] SPA Payload (entityTypeId=' + entityTypeId + '):', JSON.stringify(
+        Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields), null, 2
+      ));
 
       if (row.spaId) {
         BX24.callMethod('crm.item.update', {
@@ -846,28 +868,58 @@ var FeeSyncWidget = (function () {
     });
   }
 
+  // ─── Build SPA fields from row ─────────────────────────────────────────────
   function buildSpaFields(row, fieldMap) {
     var fields = {};
-    // Map catalog enum option IDs directly to SPA enum option IDs.
-    // row.typeOfCost and row.payments hold the catalog PROPERTY_ enum IDs (e.g. "207").
+
+    // ── Diagnostic ──
+    console.log('[FeeSyncWidget] buildSpaFields input:', {
+      typeOfCost: row.typeOfCost,
+      payments:   row.payments,
+      fieldMap:   fieldMap
+    });
+
     if (row.typeOfCost) {
       var tocSpaVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
-      if (tocSpaVal !== undefined) fields[fieldMap.typeOfCost] = tocSpaVal;
+      if (tocSpaVal !== undefined) {
+        fields[fieldMap.typeOfCost] = tocSpaVal;
+      } else {
+        console.warn('[FeeSyncWidget] typeOfCost mapping failed for value:', row.typeOfCost,
+                     '— field omitted from SPA payload');
+      }
+    } else {
+      console.warn('[FeeSyncWidget] typeOfCost is empty — field omitted from SPA payload');
     }
+
     if (row.payments) {
       var paySpaVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
-      if (paySpaVal !== undefined) fields[fieldMap.payments] = paySpaVal;
+      if (paySpaVal !== undefined) {
+        fields[fieldMap.payments] = paySpaVal;
+      } else {
+        console.warn('[FeeSyncWidget] payments mapping failed for value:', row.payments,
+                     '— field omitted from SPA payload');
+      }
+    } else {
+      console.warn('[FeeSyncWidget] payments is empty — field omitted from SPA payload');
     }
+
+    console.log('[FeeSyncWidget] buildSpaFields output:', fields);
     return fields;
   }
 
-  // Maps catalog PROPERTY_ enum IDs directly to SPA list field enum IDs.
-  // Replaces the old label-to-ID double-lookup that silently broke on string mismatches.
+  // ─── Catalog enum ID → SPA enum ID mapping ────────────────────────────────
   function mapSpaEnumValueById(fieldKey, catalogEnumId) {
     // SPA 1058 (Professional Fees):
-    //   typeOfCost: catalog 209(ProfFees)->SPA 445, catalog 207(GovCost)->SPA 447
+    //   typeOfCost: catalog 209 (Prof Fees) → SPA 445
+    //               catalog 207 (Gov Cost)  → SPA 447
+    //   payments:   catalog 193 → SPA 449, 195 → 451, 197 → 453,
+    //               199 → 455, 201 → 457, 203 → 459, 205 → 461
+    //
     // SPA 1062 (Government Fees):
-    //   typeOfCost: catalog 207(GovCost)->SPA 497, catalog 209(ProfFees)->SPA 499
+    //   typeOfCost: catalog 207 (Gov Cost)  → SPA 497
+    //               catalog 209 (Prof Fees) → SPA 499
+    //   payments:   catalog 193 → SPA 501, 195 → 503, 197 → 505,
+    //               199 → 507, 201 → 509, 203 → 511, 205 → 513
     var directMaps = {
       'ufCrm15_1779367818775': { '209': '445', '207': '447' },
       'ufCrm15_1779367955682': {
@@ -904,7 +956,7 @@ var FeeSyncWidget = (function () {
   // ─── Product Edit/Create Modal ─────────────────────────────────────────────
   function showProductEditModal(productId) {
     var product = productId ? findCatalogProduct(productId) : null;
-    var isNew = !product;
+    var isNew   = !product;
 
     var overlay = document.createElement('div');
     overlay.id = 'product-edit-modal';
@@ -1037,15 +1089,13 @@ var FeeSyncWidget = (function () {
       };
 
       var propFields = {};
-      var toc  = document.getElementById('ep-type-of-cost').value;
-      var pay  = document.getElementById('ep-payments').value;
-      var ct   = document.getElementById('ep-company-type').value;
-      var vt   = document.getElementById('ep-visa-type').value;
-      var vs   = document.getElementById('ep-visa-status').value;
+      var toc = document.getElementById('ep-type-of-cost').value;
+      var pay = document.getElementById('ep-payments').value;
+      var ct  = document.getElementById('ep-company-type').value;
+      var vt  = document.getElementById('ep-visa-type').value;
+      var vs  = document.getElementById('ep-visa-status').value;
 
-      // Bitrix24 list-type properties (PROPERTY_*) must be sent as an array
-      // of objects with 'id' field, not plain integers or strings.
-      // This is the correct REST API format for crm.product.add/update
+      // Bitrix24 list-type properties must be sent as [{id: N}] arrays
       if (toc) propFields['PROPERTY_111'] = [{ id: parseInt(toc, 10) }];
       if (pay) propFields['PROPERTY_109'] = [{ id: parseInt(pay, 10) }];
       if (ct)  propFields['PROPERTY_99']  = [{ id: parseInt(ct,  10) }];
@@ -1053,14 +1103,14 @@ var FeeSyncWidget = (function () {
       if (vs)  propFields['PROPERTY_103'] = [{ id: parseInt(vs,  10) }];
 
       var btn = document.getElementById('ep-save');
-      btn.disabled = true;
+      btn.disabled    = true;
       btn.textContent = 'Saving…';
 
       if (isNew) {
         BX24.callMethod('crm.product.add', { fields: Object.assign(fields, propFields) }, function (res) {
           if (res.error()) {
             alert('Error creating product: ' + res.error());
-            btn.disabled = false;
+            btn.disabled    = false;
             btn.textContent = 'Create Product';
             return;
           }
@@ -1071,17 +1121,17 @@ var FeeSyncWidget = (function () {
             var newP = findCatalogProduct(newId);
             if (newP) {
               var row = {
-                id: state.nextRowId++,
-                productId: String(newId),
-                name: name,
-                price: fields.PRICE,
-                qty: 1,
-                taxRate: 0,
+                id:          state.nextRowId++,
+                productId:   String(newId),
+                name:        name,
+                price:       fields.PRICE,
+                qty:         1,
+                taxRate:     0,
                 taxIncluded: false,
-                typeOfCost: toc,
-                payments: pay,
-                sort: state.rows.length * 10,
-                spaId: null
+                typeOfCost:  toc,
+                payments:    pay,
+                sort:        state.rows.length * 10,
+                spaId:       null
               };
               state.rows.push(row);
               var tbody4 = document.getElementById('product-rows-body');
@@ -1097,7 +1147,7 @@ var FeeSyncWidget = (function () {
         }, function (res) {
           if (res.error()) {
             alert('Error updating product: ' + res.error());
-            btn.disabled = false;
+            btn.disabled    = false;
             btn.textContent = 'Save Changes';
             return;
           }
@@ -1142,11 +1192,11 @@ var FeeSyncWidget = (function () {
 
   // ─── Public API ────────────────────────────────────────────────────────────
   return {
-    init:               init,
-    addRow:             addEmptyRow,
-    openSelector:       openProductSelector,
-    saveAndSync:        saveAndSync,
-    showProductModal:   showProductEditModal
+    init:             init,
+    addRow:           addEmptyRow,
+    openSelector:     openProductSelector,
+    saveAndSync:      saveAndSync,
+    showProductModal: showProductEditModal
   };
 
 })();
