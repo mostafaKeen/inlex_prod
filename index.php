@@ -492,7 +492,12 @@
 
 </div><!-- /.widget-container -->
 
+<!-- UPDATED: Load the FIXED JavaScript file -->
 <script src="js/fee-sync-widget.js"></script>
+
+<!-- ADDED: Diagnostics script for debugging -->
+<script src="js/fee-sync-widget-diagnostics.js"></script>
+
 <script>
 BX24.init(function () {
 	BX24.fitWindow();
