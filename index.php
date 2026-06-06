@@ -382,10 +382,27 @@
 			letter-spacing: 0.6px;
 			margin: 0 0 10px 2px;
 		}
+
+		/* ── Debug info ────────────────────────────────────────── */
+		.debug-info {
+			background: #fff3cd;
+			border: 1px solid #ffc107;
+			border-radius: 4px;
+			padding: 10px;
+			margin-bottom: 10px;
+			font-size: 12px;
+			color: #856404;
+		}
 	</style>
 </head>
 <body>
 <div class="widget-container" style="position:relative;">
+
+	<!-- Debug Notice -->
+	<div class="debug-info">
+		<strong>🔍 Debug Mode Enabled:</strong> Open F12 Console to see detailed API responses. 
+		After loading data, run: <code>dumpApiResponses()</code>
+	</div>
 
 	<!-- Loading overlay (shown while JS fetches data) -->
 	<div id="loading-overlay">
@@ -492,10 +509,13 @@
 
 </div><!-- /.widget-container -->
 
-<!-- UPDATED: Load the FIXED JavaScript file -->
+<!-- IMPORTANT: Load API debugger FIRST, before fee-sync-widget.js -->
+<script src="js/api-response-debugger.js"></script>
+
+<!-- Load the FIXED JavaScript file -->
 <script src="js/fee-sync-widget.js"></script>
 
-<!-- ADDED: Diagnostics script for debugging -->
+<!-- Load diagnostics -->
 <script src="js/fee-sync-widget-diagnostics.js"></script>
 
 <script>
