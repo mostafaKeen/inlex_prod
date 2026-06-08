@@ -24,7 +24,6 @@
 			font-size: 13px;
 		}
 
-		/* ── Container ─────────────────────────────────────────── */
 		.widget-container {
 			background: #ffffff;
 			border-radius: 8px;
@@ -36,7 +35,6 @@
 			position: relative;
 		}
 
-		/* ── Header ────────────────────────────────────────────── */
 		.widget-header {
 			display: flex;
 			justify-content: space-between;
@@ -64,7 +62,6 @@
 			font-size: 13px;
 		}
 
-		/* ── Action bar ────────────────────────────────────────── */
 		.action-bar {
 			display: flex;
 			justify-content: space-between;
@@ -80,7 +77,6 @@
 			flex-wrap: wrap;
 		}
 
-		/* ── Buttons ───────────────────────────────────────────── */
 		.btn-primary-bx {
 			background-color: #0080ff;
 			color: #fff;
@@ -93,22 +89,9 @@
 			font-size: 13px;
 			font-family: inherit;
 		}
-
-		.btn-primary-bx:hover {
-			background-color: #0066cc;
-			box-shadow: 0 2px 8px rgba(0, 128, 255, 0.2);
-		}
-
-		.btn-primary-bx:active {
-			background-color: #0055aa;
-			transform: scale(0.98);
-		}
-
-		.btn-primary-bx:disabled {
-			background-color: #c6cdd3;
-			cursor: not-allowed;
-			opacity: 0.6;
-		}
+		.btn-primary-bx:hover { background-color: #0066cc; box-shadow: 0 2px 8px rgba(0,128,255,0.2); }
+		.btn-primary-bx:active { background-color: #0055aa; transform: scale(0.98); }
+		.btn-primary-bx:disabled { background-color: #c6cdd3; cursor: not-allowed; opacity: 0.6; }
 
 		.btn-secondary-bx {
 			background-color: #fff;
@@ -122,17 +105,8 @@
 			font-size: 13px;
 			font-family: inherit;
 		}
-
-		.btn-secondary-bx:hover {
-			background-color: #f5f7f8;
-			border-color: #a8adb2;
-			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-		}
-
-		.btn-secondary-bx:active {
-			background-color: #eef2f4;
-			transform: scale(0.98);
-		}
+		.btn-secondary-bx:hover { background-color: #f5f7f8; border-color: #a8adb2; }
+		.btn-secondary-bx:active { background-color: #eef2f4; transform: scale(0.98); }
 
 		.btn-save-sync {
 			background: linear-gradient(135deg, #2fc6f6 0%, #18b0e0 100%);
@@ -146,23 +120,11 @@
 			font-size: 13px;
 			font-family: inherit;
 			white-space: nowrap;
-			box-shadow: 0 2px 6px rgba(47, 198, 246, 0.15);
+			box-shadow: 0 2px 6px rgba(47,198,246,0.15);
 		}
-
-		.btn-save-sync:hover {
-			background: linear-gradient(135deg, #18b0e0 0%, #0a95cc 100%);
-			box-shadow: 0 4px 12px rgba(47, 198, 246, 0.25);
-			transform: translateY(-1px);
-		}
-
-		.btn-save-sync:active {
-			transform: translateY(0);
-		}
-
-		.btn-save-sync:disabled {
-			opacity: 0.6;
-			cursor: not-allowed;
-		}
+		.btn-save-sync:hover { background: linear-gradient(135deg,#18b0e0 0%,#0a95cc 100%); box-shadow: 0 4px 12px rgba(47,198,246,0.25); transform: translateY(-1px); }
+		.btn-save-sync:active { transform: translateY(0); }
+		.btn-save-sync:disabled { opacity: 0.6; cursor: not-allowed; }
 
 		.btn-delete {
 			color: #a8adb2;
@@ -175,13 +137,8 @@
 			line-height: 1;
 			transition: all 0.2s ease;
 		}
+		.btn-delete:hover { color: #ff5050; background: #fff0f0; }
 
-		.btn-delete:hover {
-			color: #ff5050;
-			background: #fff0f0;
-		}
-
-		/* ── Inputs ────────────────────────────────────────────── */
 		.input-bx {
 			border: 1px solid #c6cdd3;
 			border-radius: 4px;
@@ -194,29 +151,11 @@
 			outline: none;
 			transition: all 0.2s ease;
 		}
+		.input-bx:focus { border-color: #0080ff; box-shadow: 0 0 0 3px rgba(0,128,255,0.1); }
 
-		.input-bx:focus {
-			border-color: #0080ff;
-			box-shadow: 0 0 0 3px rgba(0, 128, 255, 0.1);
-		}
-
-		.input-bx-wrapper {
-			position: relative;
-			display: flex;
-			align-items: center;
-		}
-
-		.input-bx-suffix {
-			position: absolute;
-			right: 8px;
-			color: #a8adb2;
-			pointer-events: none;
-			font-size: 12px;
-		}
-
-		.input-bx-with-suffix {
-			padding-right: 30px !important;
-		}
+		.input-bx-wrapper { position: relative; display: flex; align-items: center; }
+		.input-bx-suffix { position: absolute; right: 8px; color: #a8adb2; pointer-events: none; font-size: 12px; }
+		.input-bx-with-suffix { padding-right: 30px !important; }
 
 		.select-bx {
 			appearance: none;
@@ -229,7 +168,6 @@
 			cursor: pointer;
 		}
 
-		/* ── Product table ─────────────────────────────────────── */
 		.section-label {
 			font-size: 11px;
 			font-weight: 700;
@@ -243,7 +181,6 @@
 			overflow-x: auto;
 			border: 1px solid #e2e5ec;
 			border-radius: 6px;
-			margin-bottom: 0;
 		}
 
 		.product-table {
@@ -253,9 +190,7 @@
 			min-width: 900px;
 		}
 
-		.product-table thead tr {
-			background-color: #f7f9fa;
-		}
+		.product-table thead tr { background-color: #f7f9fa; }
 
 		.product-table th {
 			color: #828b95;
@@ -274,47 +209,16 @@
 			vertical-align: middle;
 		}
 
-		.product-table tbody tr {
-			transition: all 0.15s ease;
-			background-color: #fff;
-		}
+		.product-table tbody tr { transition: all 0.15s ease; background-color: #fff; }
+		.product-table tbody tr:last-child td { border-bottom: none; }
+		.product-table tbody tr:hover { background-color: #fafbfc; }
 
-		.product-table tbody tr:hover {
-			background-color: #fafbfc;
-			box-shadow: inset 0 0 0 1px #f0f2f5;
-		}
+		.row-number { color: #a8adb2; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+		.drag-handle { cursor: grab; color: #d0d4da; font-size: 16px; user-select: none; transition: color 0.2s; }
+		tr:hover .drag-handle { color: #0080ff; }
+		.drag-handle:active { cursor: grabbing; }
 
-		.row-number {
-			color: #a8adb2;
-			display: flex;
-			align-items: center;
-			gap: 6px;
-			font-weight: 600;
-			font-size: 12px;
-		}
-
-		.drag-handle {
-			cursor: grab;
-			color: #d0d4da;
-			font-size: 16px;
-			user-select: none;
-			transition: color 0.2s ease;
-		}
-
-		tr:hover .drag-handle {
-			color: #0080ff;
-		}
-
-		.drag-handle:active {
-			cursor: grabbing;
-		}
-
-		/* ── Totals ────────────────────────────────────────────── */
-		.totals-container {
-			display: flex;
-			justify-content: flex-end;
-			margin-top: 24px;
-		}
+		.totals-container { display: flex; justify-content: flex-end; margin-top: 24px; }
 
 		.totals-box {
 			width: 340px;
@@ -324,19 +228,8 @@
 			padding: 16px;
 		}
 
-		.total-row {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			padding: 8px 0;
-			color: #828b95;
-			font-size: 13px;
-		}
-
-		.total-row strong {
-			color: #535c69;
-			font-weight: 600;
-		}
+		.total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; color: #828b95; font-size: 13px; }
+		.total-row strong { color: #535c69; font-weight: 600; }
 
 		.total-row.grand-total {
 			border-top: 2px solid #e2e5ec;
@@ -346,13 +239,8 @@
 			font-size: 15px;
 			font-weight: 700;
 		}
+		.total-row.grand-total strong { color: #0080ff; font-size: 17px; }
 
-		.total-row.grand-total strong {
-			color: #0080ff;
-			font-size: 17px;
-		}
-
-		/* ── Status ────────────────────────────────────────────── */
 		.status-footer {
 			display: flex;
 			justify-content: space-between;
@@ -364,13 +252,7 @@
 			flex-wrap: wrap;
 		}
 
-		.status-left {
-			display: flex;
-			flex-direction: column;
-			gap: 8px;
-			flex: 1;
-			min-width: 0;
-		}
+		.status-left { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
 
 		#sync-status {
 			display: inline-block;
@@ -378,855 +260,1211 @@
 			padding: 6px 12px;
 			border-radius: 4px;
 			font-size: 12px;
-			animation: fadeIn 0.3s ease;
 		}
 
-		.status-info {
-			color: #0066cc;
-			background: #e5f2ff;
-		}
-
-		.status-success {
-			color: #155724;
-			background: #d4edda;
-		}
-
-		.status-warning {
-			color: #856404;
-			background: #fff3cd;
-		}
-
-		.status-danger {
-			color: #721c24;
-			background: #f8d7da;
-		}
-
-		@keyframes fadeIn {
-			from {
-				opacity: 0;
-				transform: translateY(-4px);
-			}
-			to {
-				opacity: 1;
-				transform: translateY(0);
-			}
-		}
-
-		/* ── Loading overlay ───────────────────────────────────── */
-		#initial-loading {
-			display: none;
-			position: absolute;
-			inset: 0;
-			background: rgba(255, 255, 255, 0.9);
-			border-radius: 8px;
-			align-items: center;
-			justify-content: center;
-			z-index: 50;
-		}
-
-		#initial-loading.visible {
-			display: flex;
-		}
-
-		.loading-spinner {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 16px;
-		}
-
-		.spinner {
-			width: 32px;
-			height: 32px;
-			border: 3px solid #e2e5ec;
-			border-top-color: #0080ff;
-			border-radius: 50%;
-			animation: spin 0.8s linear infinite;
-		}
-
-		.loading-text {
-			font-weight: 600;
-			color: #535c69;
-			font-size: 14px;
-		}
-
-		@keyframes spin {
-			to {
-				transform: rotate(360deg);
-			}
-		}
-
-		/* ── Save Modal Overlay ────────────────────────────────– */
-		#save-modal-overlay {
-			display: none;
-			position: fixed;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background: rgba(0, 0, 0, 0.4);
-			z-index: 9999;
-			align-items: center;
-			justify-content: center;
-		}
-
-		#save-modal-overlay.visible {
-			display: flex;
-		}
-
-		.save-modal {
-			background: #fff;
-			border-radius: 8px;
-			padding: 48px 40px;
-			text-align: center;
-			max-width: 360px;
-			box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
-			animation: slideUp 0.3s ease;
-		}
-
-		@keyframes slideUp {
-			from {
-				opacity: 0;
-				transform: translateY(16px);
-			}
-			to {
-				opacity: 1;
-				transform: translateY(0);
-			}
-		}
-
-		.save-modal-icon {
-			font-size: 48px;
-			margin-bottom: 16px;
-			display: block;
-		}
-
-		.save-modal-icon.saving {
-			animation: spin 1s linear infinite;
-		}
-
-		.save-modal-icon.success {
-			animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-		}
-
-		@keyframes popIn {
-			0% {
-				opacity: 0;
-				transform: scale(0.3);
-			}
-			100% {
-				opacity: 1;
-				transform: scale(1);
-			}
-		}
-
-		.save-modal-title {
-			font-size: 16px;
-			font-weight: 700;
-			color: #222;
-			margin: 16px 0 8px 0;
-		}
-
-		.save-modal-message {
-			font-size: 13px;
+		#sync-log {
+			font-size: 11px;
 			color: #828b95;
-			margin: 0;
+			max-height: 72px;
+			overflow-y: auto;
 			line-height: 1.5;
 		}
 
-		.save-modal-details {
-			margin-top: 20px;
-			padding-top: 20px;
-			border-top: 1px solid #e2e5ec;
-			text-align: left;
-		}
+		.status-info    { color: #0066cc; background: #e5f2ff; }
+		.status-success { color: #155724; background: #d4edda; }
+		.status-warning { color: #856404; background: #fff3cd; }
+		.status-danger  { color: #721c24; background: #f8d7da; }
 
-		.detail-row {
-			display: flex;
-			justify-content: space-between;
-			padding: 6px 0;
-			font-size: 12px;
-			color: #828b95;
-		}
+		#initial-loading { display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.9); border-radius: 8px; align-items: center; justify-content: center; z-index: 50; }
+		#initial-loading.visible { display: flex; }
 
-		.detail-row strong {
-			color: #535c69;
-		}
+		.loading-spinner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+		.spinner { width: 32px; height: 32px; border: 3px solid #e2e5ec; border-top-color: #0080ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+		.loading-text { font-weight: 600; color: #535c69; font-size: 14px; }
 
-		/* ── Responsive ────────────────────────────────────────– */
-		@media (max-width: 1024px) {
-			.widget-container {
-				padding: 16px;
-			}
+		@keyframes spin { to { transform: rotate(360deg); } }
 
-			.action-bar {
-				flex-direction: column;
-				align-items: flex-start;
-			}
+		/* Save modal */
+		#save-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9999; align-items: center; justify-content: center; }
+		#save-modal-overlay.visible { display: flex; }
 
-			.left-actions {
-				width: 100%;
-			}
+		.save-modal { background: #fff; border-radius: 8px; padding: 48px 40px; text-align: center; max-width: 360px; box-shadow: 0 16px 48px rgba(0,0,0,0.15); animation: slideUp 0.3s ease; }
 
-			.btn-primary-bx,
-			.btn-secondary-bx {
-				flex: 1;
-			}
+		@keyframes slideUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: translateY(0); } }
 
-			.totals-container {
-				margin-top: 16px;
-			}
-		}
+		.save-modal-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+		.save-modal-title { font-size: 16px; font-weight: 700; color: #222; margin: 16px 0 8px 0; }
+		.save-modal-message { font-size: 13px; color: #828b95; margin: 0; line-height: 1.5; }
+		.save-modal-details { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e5ec; text-align: left; }
+		.detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #828b95; }
+		.detail-row strong { color: #535c69; }
 
 		@media (max-width: 600px) {
-			body {
-				padding: 8px;
-			}
-
-			.widget-container {
-				padding: 12px;
-			}
-
-			.widget-title {
-				font-size: 16px;
-			}
-
-			.action-bar {
-				gap: 8px;
-			}
-
-			.btn-primary-bx,
-			.btn-secondary-bx,
-			.btn-save-sync {
-				padding: 6px 12px;
-				font-size: 12px;
-			}
-
-			.product-table th,
-			.product-table td {
-				padding: 8px;
-				font-size: 11px;
-			}
-
-			.totals-box {
-				width: 100%;
-			}
+			body { padding: 8px; }
+			.widget-container { padding: 12px; }
+			.totals-box { width: 100%; }
 		}
 	</style>
 </head>
 <body>
-	<div class="widget-container">
+<div class="widget-container">
 
-		<!-- Initial Loading Overlay -->
-		<div id="initial-loading">
-			<div class="loading-spinner">
-				<div class="spinner"></div>
-				<div class="loading-text">Preparing widget…</div>
-			</div>
+	<!-- Initial Loading Overlay -->
+	<div id="initial-loading">
+		<div class="loading-spinner">
+			<div class="spinner"></div>
+			<div class="loading-text" id="loading-text">Preparing widget…</div>
 		</div>
-
-		<!-- Save Modal Overlay -->
-		<div id="save-modal-overlay">
-			<div class="save-modal">
-				<span id="save-modal-icon" class="save-modal-icon saving">⚙️</span>
-				<h3 class="save-modal-title" id="save-modal-title">Saving Changes…</h3>
-				<p class="save-modal-message" id="save-modal-message">Please wait while we update your data</p>
-				<div class="save-modal-details" id="save-modal-details"></div>
-			</div>
-		</div>
-
-		<!-- Header -->
-		<div class="widget-header">
-			<div>
-				<h1 class="widget-title">Product Fee Sync</h1>
-				<div class="entity-info">
-					<span id="entity-type-label"></span>
-					<strong id="entity-id-label"></strong>
-				</div>
-			</div>
-		</div>
-
-		<!-- Action Bar -->
-		<div class="action-bar">
-			<div class="left-actions">
-				<button id="btn-add-product" class="btn-primary-bx">+ Add Product</button>
-				<button id="btn-select-product" class="btn-secondary-bx">Select from Catalog</button>
-				<button id="btn-edit-product" class="btn-secondary-bx">Create New Product</button>
-			</div>
-			<button id="btn-save" class="btn-save-sync">💾 Save & Sync</button>
-		</div>
-
-		<!-- Product Table -->
-		<div class="section-label">Products (Drag to reorder)</div>
-		<div class="table-responsive">
-			<table class="product-table">
-				<thead>
-					<tr>
-						<th style="width:50px;">#</th>
-						<th>Product Name</th>
-						<th style="width:44px;"></th>
-						<th style="width:170px;">Type of Cost</th>
-						<th style="width:140px;">Price</th>
-						<th style="width:140px;">Payments</th>
-						<th style="width:110px;">Tax %</th>
-						<th style="width:140px;">Amount</th>
-						<th style="width:36px;"></th>
-					</tr>
-				</thead>
-				<tbody id="product-rows-body"></tbody>
-			</table>
-		</div>
-
-		<!-- Totals -->
-		<div class="totals-container">
-			<div class="totals-box">
-				<div class="total-row">
-					<span>Subtotal (no tax):</span>
-					<strong id="total-raw">Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Delivery:</span>
-					<strong>Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Discount:</span>
-					<strong>Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Total before tax:</span>
-					<strong id="total-before-tax">Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Tax total:</span>
-					<strong id="total-tax">Dh 0.00</strong>
-				</div>
-				<div class="total-row grand-total">
-					<span>Total amount:</span>
-					<strong id="total-amount">Dh 0.00</strong>
-				</div>
-			</div>
-		</div>
-
-		<!-- Status Footer -->
-		<div class="status-footer">
-			<div class="status-left">
-				<div id="sync-status" class="status-info">✓ Ready to save</div>
-			</div>
-		</div>
-
 	</div>
 
-	<!-- Main Script -->
-	<script>
-		var FeeSyncWidget = (function () {
+	<!-- Save Modal Overlay -->
+	<div id="save-modal-overlay">
+		<div class="save-modal">
+			<span id="save-modal-icon" class="save-modal-icon">⚙️</span>
+			<h3 class="save-modal-title" id="save-modal-title">Saving Changes…</h3>
+			<p class="save-modal-message" id="save-modal-message">Please wait while we update your data</p>
+			<div class="save-modal-details" id="save-modal-details"></div>
+		</div>
+	</div>
 
-			var SPA_PROF_FIELDS = {
-				typeOfCost:  'ufCrm15_1779367818775',
-				payments:    'ufCrm15_1779367955682',
-				companyType: 'ufCrm15_1779368170455',
-				visaType:    'ufCrm15_1779368285728',
-				visaStatus:  'ufCrm15_1779368405816',
-			};
+	<!-- Header -->
+	<div class="widget-header">
+		<div>
+			<h1 class="widget-title">Product Fee Sync</h1>
+			<div class="entity-info">
+				<span id="entity-type-label"></span>
+				<strong id="entity-id-label"></strong>
+			</div>
+		</div>
+	</div>
 
-			var SPA_GOV_FIELDS = {
-				typeOfCost:  'ufCrm17_1779370162991',
-				payments:    'ufCrm17_1779370261982',
-				companyType: 'ufCrm17_1779370566902',
-				visaType:    'ufCrm17_1779370435095',
-				visaStatus:  'ufCrm17_1779370325590',
-			};
+	<!-- Action Bar -->
+	<div class="action-bar">
+		<div class="left-actions">
+			<button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button>
+			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
+			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create / Edit Product</button>
+		</div>
+		<button id="btn-save" class="btn-save-sync">💾 Save &amp; Sync</button>
+	</div>
 
-			var DEAL_PROF_FIELD = 'UF_CRM_1779313011';
-			var DEAL_GOV_FIELD  = 'UF_CRM_1779654189';
-			var LEAD_PROF_FIELD = 'UF_CRM_1779194029';
-			var LEAD_GOV_FIELD  = null;
+	<!-- Product Table -->
+	<div class="section-label">Products (Drag to reorder)</div>
+	<div class="table-responsive">
+		<table class="product-table">
+			<thead>
+				<tr>
+					<th style="width:50px;">#</th>
+					<th>Product Name</th>
+					<th style="width:44px;"></th>
+					<th style="width:170px;">Type of Cost</th>
+					<th style="width:140px;">Price</th>
+					<th style="width:140px;">Payments</th>
+					<th style="width:110px;">Tax %</th>
+					<th style="width:140px;">Amount</th>
+					<th style="width:36px;"></th>
+				</tr>
+			</thead>
+			<tbody id="product-rows-body"></tbody>
+		</table>
+	</div>
 
-			var PROP_TYPE_OF_COST = { '207': 'Government Cost', '209': 'Professional Fees' };
-			var PROP_PAYMENTS = {
-				'193': 'Annually', '195': 'One Time', '197': 'Quarterly',
-				'199': 'Every 2 years', '201': 'Monthly',
-				'203': 'In The Order Of Discussion',
-				'205': 'One time (cost depends on transactions)'
-			};
+	<!-- Totals -->
+	<div class="totals-container">
+		<div class="totals-box">
+			<div class="total-row"><span>Subtotal (no tax):</span><strong id="total-raw">Dh 0.00</strong></div>
+			<div class="total-row"><span>Delivery:</span><strong>Dh 0.00</strong></div>
+			<div class="total-row"><span>Discount:</span><strong>Dh 0.00</strong></div>
+			<div class="total-row"><span>Total before tax:</span><strong id="total-before-tax">Dh 0.00</strong></div>
+			<div class="total-row"><span>Tax total:</span><strong id="total-tax">Dh 0.00</strong></div>
+			<div class="total-row grand-total"><span>Total amount:</span><strong id="total-amount">Dh 0.00</strong></div>
+		</div>
+	</div>
 
-			var state = {
-				entityType:     null,
-				entityId:       null,
-				rows:           [],
-				nextRowId:      1,
-				productCatalog: [],
-				iblockId:       null,
-				spaItems:       { prof: {}, gov: {} },
-				draggedRow:     null,
-				draggedIndex:   null
-			};
+	<!-- Status Footer -->
+	<div class="status-footer">
+		<div class="status-left">
+			<div id="sync-status" class="status-info">✓ Ready to save</div>
+			<div id="sync-log"></div>
+		</div>
+	</div>
 
-			function setStatus(msg, cls) {
-				var el = document.getElementById('sync-status');
-				if (!el) return;
-				el.textContent = msg;
-				el.className = cls || 'status-info';
-			}
+</div>
 
-			function init(entityType, entityId, onReady) {
-				state.entityType     = entityType;
-				state.entityId       = entityId;
-				state.rows           = [];
-				state.nextRowId      = 1;
-				state.productCatalog = [];
-				state.iblockId       = null;
-				state.spaItems       = { prof: {}, gov: {} };
-				state.draggedRow     = null;
-				state.draggedIndex   = null;
+<script>
+var FeeSyncWidget = (function () {
 
-				setStatus('✓ Ready to save', 'status-info');
+	// ─── SPA Field Maps ───────────────────────────────────────────────────────
+	var SPA_PROF_FIELDS = {
+		typeOfCost:  'ufCrm15_1779367818775',
+		payments:    'ufCrm15_1779367955682',
+		companyType: 'ufCrm15_1779368170455',
+		visaType:    'ufCrm15_1779368285728',
+		visaStatus:  'ufCrm15_1779368405816',
+	};
 
-				fetchIblockId(function () {
-					loadCatalogProducts(function () {
-						loadEntityProducts(function () {
-							renderRows();
-							bindActions();
-							if (typeof onReady === 'function') onReady();
-						});
-					});
+	var SPA_GOV_FIELDS = {
+		typeOfCost:  'ufCrm17_1779370162991',
+		payments:    'ufCrm17_1779370261982',
+		companyType: 'ufCrm17_1779370566902',
+		visaType:    'ufCrm17_1779370435095',
+		visaStatus:  'ufCrm17_1779370325590',
+	};
+
+	var DEAL_PROF_FIELD = 'UF_CRM_1779313011';
+	var DEAL_GOV_FIELD  = 'UF_CRM_1779654189';
+	var LEAD_PROF_FIELD = 'UF_CRM_1779194029';
+	var LEAD_GOV_FIELD  = null;
+
+	var PROP_TYPE_OF_COST = { '207': 'Government Cost', '209': 'Professional Fees' };
+	var PROP_PAYMENTS = {
+		'193': 'Annually', '195': 'One Time', '197': 'Quarterly',
+		'199': 'Every 2 years', '201': 'Monthly',
+		'203': 'In The Order Of Discussion',
+		'205': 'One time (cost depends on transactions)'
+	};
+
+	// ─── State ────────────────────────────────────────────────────────────────
+	var state = {
+		entityType:     null,
+		entityId:       null,
+		rows:           [],
+		nextRowId:      1,
+		productCatalog: [],
+		iblockId:       null,
+		spaItems:       { prof: {}, gov: {} },
+		draggedRow:     null,
+		draggedIndex:   null
+	};
+
+	// ─── Logging ──────────────────────────────────────────────────────────────
+	function log(msg) {
+		console.log('[FeeSyncWidget] ' + msg);
+		var el = document.getElementById('sync-log');
+		if (!el) return;
+		var ts = new Date().toLocaleTimeString();
+		el.innerHTML = '<span>[' + ts + '] ' + msg + '</span><br>' + el.innerHTML;
+	}
+
+	function setStatus(msg, cls) {
+		var el = document.getElementById('sync-status');
+		if (!el) return;
+		el.textContent = msg;
+		el.className = cls || 'status-info';
+	}
+
+	function setLoadingText(txt) {
+		var el = document.getElementById('loading-text');
+		if (el) el.textContent = txt;
+	}
+
+	// ─── Init ─────────────────────────────────────────────────────────────────
+	function init(entityType, entityId, onReady) {
+		state.entityType     = entityType;
+		state.entityId       = entityId;
+		state.rows           = [];
+		state.nextRowId      = 1;
+		state.productCatalog = [];
+		state.iblockId       = null;
+		state.spaItems       = { prof: {}, gov: {} };
+		state.draggedRow     = null;
+		state.draggedIndex   = null;
+
+		setStatus('Loading…', 'status-info');
+		log('Init for ' + entityType + ' #' + entityId);
+
+		setLoadingText('Loading catalog…');
+		fetchIblockId(function () {
+			loadCatalogProducts(function () {
+				setLoadingText('Loading products…');
+				loadEntityProducts(function () {
+					renderRows();
+					bindActions();
+					setStatus('✓ Ready to save', 'status-info');
+					if (typeof onReady === 'function') onReady();
 				});
-			}
+			});
+		});
+	}
 
-			function fetchIblockId(cb) {
-				BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
-					if (!res.error()) {
-						var catalogs = res.data() || [];
-						var catalog = catalogs[0] || null;
-						if (catalog) {
-							state.iblockId = catalog.id || catalog.ID || null;
-						}
-					}
-					if (cb) cb();
-				});
-			}
-
-			function loadCatalogProducts(cb) {
-				var allProducts = [];
-				BX24.callMethod('crm.product.list', {
-					select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
-					         'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-					         'PROPERTY_101', 'PROPERTY_103'],
-					filter: { 'ACTIVE': 'Y' },
-					order:  { 'NAME': 'ASC' }
-				}, function (res) {
-					if (res.error()) {
-						state.productCatalog = allProducts;
-						if (cb) cb();
-						return;
-					}
-					var page = res.data() || [];
-					allProducts = allProducts.concat(page);
-					if (res.more()) {
-						res.next();
-					} else {
-						state.productCatalog = allProducts;
-						if (cb) cb();
-					}
-				});
-			}
-
-			function loadEntityProducts(cb) {
-				var method = state.entityType === 'deal'
-					? 'crm.deal.productrows.get'
-					: 'crm.lead.productrows.get';
-
-				BX24.callMethod(method, { id: state.entityId }, function (res) {
-					if (res.error()) {
-						if (cb) cb();
-						return;
-					}
-					var rows = res.data() || [];
-					rows.forEach(function (r) {
-						state.rows.push(buildRowFromEntityRow(r));
-					});
-					if (cb) cb();
-				});
-			}
-
-			function buildRowFromEntityRow(r) {
-				var catalogItem = findCatalogProduct(r.PRODUCT_ID);
-				var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
-				var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
-
-				var row = {
-					id:          state.nextRowId++,
-					productId:   r.PRODUCT_ID || '',
-					name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
-					price:       parseFloat(r.PRICE    || 0),
-					qty:         parseFloat(r.QUANTITY || 1),
-					taxRate:     parseFloat(r.TAX_RATE || 0),
-					taxIncluded: (r.TAX_INCLUDED === 'Y'),
-					typeOfCost:  String(typeOfCost),
-					payments:    String(payments),
-					sort:        parseInt(r.SORT || 0),
-					spaId:       null,
-					_entityRow:  r
-				};
-				return row;
-			}
-
-			function getPropValue(product, propKey) {
-				if (!product) return '';
-				var val = product[propKey];
-				if (val === undefined || val === null || val === '') return '';
-				if (Array.isArray(val)) {
-					val = val[0];
-					if (val === undefined || val === null) return '';
+	// ─── Fetch iblock ID ──────────────────────────────────────────────────────
+	function fetchIblockId(cb) {
+		BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+			if (!res.error()) {
+				var catalogs = res.data() || [];
+				var catalog = catalogs[0] || null;
+				if (catalog) {
+					state.iblockId = catalog.id || catalog.ID || null;
+					log('iblockId = ' + state.iblockId);
 				}
-				if (typeof val === 'object') {
-					if (val.id    !== undefined) return String(val.id);
-					if (val.ID    !== undefined) return String(val.ID);
-					if (val.VALUE !== undefined) return String(val.VALUE);
-					if (val.value !== undefined) return String(val.value);
-				}
-				return String(val);
+			}
+			if (cb) cb();
+		});
+	}
+
+	// ─── Load catalog products ─────────────────────────────────────────────
+	function loadCatalogProducts(cb) {
+		var allProducts = [];
+		BX24.callMethod('crm.product.list', {
+			select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
+			         'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
+			         'PROPERTY_101', 'PROPERTY_103'],
+			filter: { 'ACTIVE': 'Y' },
+			order:  { 'NAME': 'ASC' }
+		}, function (res) {
+			if (res.error()) {
+				log('Catalog load error: ' + res.error());
+				state.productCatalog = allProducts;
+				if (cb) cb();
+				return;
+			}
+			var page = res.data() || [];
+			allProducts = allProducts.concat(page);
+			if (res.more()) {
+				res.next();
+			} else {
+				state.productCatalog = allProducts;
+				log('Loaded ' + allProducts.length + ' catalog products');
+				if (cb) cb();
+			}
+		});
+	}
+
+	// ─── Load entity product rows ─────────────────────────────────────────────
+	function loadEntityProducts(cb) {
+		var method = state.entityType === 'deal'
+			? 'crm.deal.productrows.get'
+			: 'crm.lead.productrows.get';
+
+		BX24.callMethod(method, { id: state.entityId }, function (res) {
+			if (res.error()) {
+				log('Product rows error: ' + res.error());
+				if (cb) cb();
+				return;
+			}
+			var rows = res.data() || [];
+			log('Loaded ' + rows.length + ' product row(s)');
+			rows.forEach(function (r) {
+				state.rows.push(buildRowFromEntityRow(r));
+			});
+			if (cb) cb();
+		});
+	}
+
+	function buildRowFromEntityRow(r) {
+		var catalogItem = findCatalogProduct(r.PRODUCT_ID);
+		var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
+		var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
+
+		return {
+			id:          state.nextRowId++,
+			productId:   r.PRODUCT_ID || '',
+			name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
+			price:       parseFloat(r.PRICE    || 0),
+			qty:         parseFloat(r.QUANTITY || 1),
+			taxRate:     parseFloat(r.TAX_RATE || 0),
+			taxIncluded: (r.TAX_INCLUDED === 'Y'),
+			typeOfCost:  String(typeOfCost),
+			payments:    String(payments),
+			sort:        parseInt(r.SORT || 0),
+			spaId:       null,
+			_entityRow:  r
+		};
+	}
+
+	function getPropValue(product, propKey) {
+		if (!product) return '';
+		var val = product[propKey];
+		if (val === undefined || val === null || val === '') return '';
+		if (Array.isArray(val)) {
+			val = val[0];
+			if (val === undefined || val === null) return '';
+		}
+		if (typeof val === 'object') {
+			if (val.id    !== undefined) return String(val.id);
+			if (val.ID    !== undefined) return String(val.ID);
+			if (val.VALUE !== undefined) return String(val.VALUE);
+			if (val.value !== undefined) return String(val.value);
+		}
+		return String(val);
+	}
+
+	function findCatalogProduct(productId) {
+		if (!productId) return null;
+		var pid = String(productId);
+		return state.productCatalog.find(function (p) {
+			return String(p.ID || p.id) === pid;
+		}) || null;
+	}
+
+	// ─── Render ───────────────────────────────────────────────────────────────
+	function renderRows() {
+		var tbody = document.getElementById('product-rows-body');
+		if (!tbody) return;
+		tbody.innerHTML = '';
+		state.rows.forEach(function (row, idx) {
+			tbody.appendChild(buildRowEl(row, idx + 1, idx));
+		});
+		recalcTotals();
+	}
+
+	function buildRowEl(row, num, index) {
+		var tr = document.createElement('tr');
+		tr.setAttribute('data-row-id', row.id);
+		tr.setAttribute('data-row-index', index);
+		tr.draggable = true;
+
+		var typeOpts = buildEnumOpts([
+			{ id: '207', label: 'Government Cost' },
+			{ id: '209', label: 'Professional Fees' }
+		], row.typeOfCost);
+
+		var payOpts = buildEnumOpts([
+			{ id: '193', label: 'Annually' },
+			{ id: '195', label: 'One Time' },
+			{ id: '197', label: 'Quarterly' },
+			{ id: '199', label: 'Every 2 years' },
+			{ id: '201', label: 'Monthly' },
+			{ id: '203', label: 'In The Order Of Discussion' },
+			{ id: '205', label: 'One time (variable)' }
+		], row.payments);
+
+		var amount = (row.price * row.qty).toFixed(2);
+
+		tr.innerHTML = [
+			'<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
+			'<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
+			'<td></td>',
+			'<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
+			'<td><div class="input-bx-wrapper">',
+			  '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
+			  '<span class="input-bx-suffix">Dh</span></div></td>',
+			'<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
+			'<td><div class="input-bx-wrapper">',
+			  '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
+			  '<span class="input-bx-suffix">%</span></div></td>',
+			'<td><div class="input-bx-wrapper">',
+			  '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
+			  '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
+			'</div></td>',
+			'<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
+		].join('');
+
+		// ── Live sync: read DOM → state so values are never lost ──
+		tr.querySelector('.js-product-name').addEventListener('input', function (e) {
+			updateRowField(row.id, 'name', e.target.value);
+		});
+		tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) {
+			updateRowField(row.id, 'typeOfCost', e.target.value);
+			log('Row ' + row.id + ' typeOfCost → ' + e.target.value);
+		});
+		tr.querySelector('.js-payments').addEventListener('change', function (e) {
+			updateRowField(row.id, 'payments', e.target.value);
+			log('Row ' + row.id + ' payments → ' + e.target.value);
+		});
+		tr.querySelector('.js-price').addEventListener('input', function (e) {
+			updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
+			recalcRowAmount(row.id);
+		});
+		tr.querySelector('.js-tax').addEventListener('input', function (e) {
+			updateRowField(row.id, 'taxRate', parseFloat(e.target.value) || 0);
+			recalcRowAmount(row.id);
+		});
+		tr.querySelector('.js-delete-row').addEventListener('click', function () { deleteRow(row.id); });
+
+		// ── Drag & drop ───────────────────────────────────────────
+		tr.addEventListener('dragstart', function (e) {
+			state.draggedRow   = row.id;
+			state.draggedIndex = index;
+			tr.style.opacity   = '0.6';
+			tr.style.background = '#f0f8ff';
+			e.dataTransfer.effectAllowed = 'move';
+		});
+		tr.addEventListener('dragend', function () {
+			tr.style.opacity = '1';
+			tr.style.background = '';
+			state.draggedRow   = null;
+			state.draggedIndex = null;
+			document.querySelectorAll('#product-rows-body tr').forEach(function (t) { t.style.borderTop = ''; });
+		});
+		tr.addEventListener('dragover', function (e) {
+			e.preventDefault();
+			e.dataTransfer.dropEffect = 'move';
+			if (state.draggedIndex !== null && state.draggedIndex !== index) {
+				tr.style.borderTop = '2px solid #0080ff';
+			}
+		});
+		tr.addEventListener('dragleave', function () { tr.style.borderTop = ''; });
+		tr.addEventListener('drop', function (e) {
+			e.preventDefault();
+			if (state.draggedRow === null || state.draggedIndex === null) return;
+			if (state.draggedIndex === index) return;
+			var obj = state.rows.find(function (r) { return r.id === state.draggedRow; });
+			if (!obj) return;
+			state.rows.splice(state.draggedIndex, 1);
+			state.rows.splice(index, 0, obj);
+			tr.style.borderTop = '';
+			renderRows();
+			log('Reordered: row #' + state.draggedRow + ' → position ' + (index + 1));
+		});
+
+		return tr;
+	}
+
+	function buildEnumOpts(items, currentVal) {
+		var html = '<option value="">-- select --</option>';
+		var norm = String(currentVal || '').trim();
+		items.forEach(function (item) {
+			var sel = (String(item.id).trim() === norm) ? ' selected' : '';
+			html += '<option value="' + item.id + '"' + sel + '>' + escHtml(item.label) + '</option>';
+		});
+		return html;
+	}
+
+	// ─── Row helpers ──────────────────────────────────────────────────────────
+	function updateRowField(rowId, field, value) {
+		var row = findRow(rowId);
+		if (row) row[field] = value;
+	}
+
+	function recalcRowAmount(rowId) {
+		var row = findRow(rowId);
+		if (!row) return;
+		var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+		if (tr) {
+			var amtInput = tr.querySelector('.js-amount');
+			if (amtInput) amtInput.value = (row.price * row.qty).toFixed(2);
+		}
+		recalcTotals();
+	}
+
+	function deleteRow(rowId) {
+		state.rows = state.rows.filter(function (r) { return r.id !== rowId; });
+		var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+		if (tr) tr.remove();
+		document.querySelectorAll('#product-rows-body tr').forEach(function (tr2, i) {
+			var numEl = tr2.querySelector('.row-number span:last-child');
+			if (numEl) numEl.textContent = i + 1;
+		});
+		recalcTotals();
+	}
+
+	function findRow(rowId) {
+		return state.rows.find(function (r) { return r.id === rowId; }) || null;
+	}
+
+	function addEmptyRow() {
+		var row = {
+			id: state.nextRowId++, productId: '', name: '',
+			price: 0, qty: 1, taxRate: 0, taxIncluded: false,
+			typeOfCost: '', payments: '',
+			sort: state.rows.length * 10, spaId: null
+		};
+		state.rows.push(row);
+		var tbody = document.getElementById('product-rows-body');
+		if (tbody) tbody.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
+		recalcTotals();
+	}
+
+	// ─── Totals ───────────────────────────────────────────────────────────────
+	// NOTE: recalcTotals only reads DOM → state; it does NOT clear typeOfCost/payments
+	// when the selects are on "-- select --" (empty), preserving values set at load time.
+	function recalcTotals() {
+		var trs = document.querySelectorAll('#product-rows-body tr');
+		trs.forEach(function (tr2) {
+			var rowId = parseInt(tr2.getAttribute('data-row-id'));
+			var row   = findRow(rowId);
+			if (!row) return;
+
+			var priceEl = tr2.querySelector('.js-price');
+			var taxEl   = tr2.querySelector('.js-tax');
+			var nameEl  = tr2.querySelector('.js-product-name');
+			var tocEl   = tr2.querySelector('.js-type-of-cost');
+			var payEl   = tr2.querySelector('.js-payments');
+
+			if (priceEl) row.price   = parseFloat(priceEl.value) || 0;
+			if (taxEl)   row.taxRate = parseFloat(taxEl.value)   || 0;
+			if (nameEl)  row.name    = nameEl.value;
+			// Only overwrite when user has actually chosen a value
+			if (tocEl && tocEl.value !== '') row.typeOfCost = tocEl.value;
+			if (payEl && payEl.value !== '') row.payments   = payEl.value;
+
+			var amtEl = tr2.querySelector('.js-amount');
+			if (amtEl) amtEl.value = (row.price * row.qty).toFixed(2);
+		});
+
+		var raw = 0, taxTotal = 0;
+		state.rows.forEach(function (r) {
+			var base  = r.price * r.qty;
+			raw      += base;
+			taxTotal += base * (r.taxRate / 100);
+		});
+
+		setText('total-raw',        'Dh ' + raw.toFixed(2));
+		setText('total-before-tax', 'Dh ' + raw.toFixed(2));
+		setText('total-tax',        'Dh ' + taxTotal.toFixed(2));
+		setText('total-amount',     'Dh ' + (raw + taxTotal).toFixed(2));
+	}
+
+	function setText(id, val) {
+		var el = document.getElementById(id);
+		if (el) el.textContent = val;
+	}
+
+	// ─── Product Picker Modal ─────────────────────────────────────────────────
+	function showProductPickerModal() {
+		var existing = document.getElementById('product-picker-modal');
+		if (existing) existing.remove();
+
+		var overlay = document.createElement('div');
+		overlay.id = 'product-picker-modal';
+		overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+		var modal = document.createElement('div');
+		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;';
+
+		modal.innerHTML = [
+			'<div style="display:flex;justify-content:space-between;align-items:center">',
+				'<strong style="font-size:15px;color:#333">Select Products from Catalog</strong>',
+				'<button id="picker-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>',
+			'</div>',
+			'<div style="display:flex;gap:8px;flex-wrap:wrap">',
+				'<input id="picker-search" type="text" placeholder="Search products…" class="input-bx" style="flex:2;min-width:160px">',
+				'<select id="picker-filter-type" class="input-bx select-bx" style="flex:1;min-width:140px">',
+					'<option value="">All Types</option>',
+					'<option value="207">Government Cost</option>',
+					'<option value="209">Professional Fees</option>',
+				'</select>',
+				'<select id="picker-filter-payments" class="input-bx select-bx" style="flex:1;min-width:140px">',
+					'<option value="">All Payments</option>',
+					'<option value="193">Annually</option><option value="195">One Time</option>',
+					'<option value="197">Quarterly</option><option value="199">Every 2 years</option>',
+					'<option value="201">Monthly</option>',
+				'</select>',
+			'</div>',
+			'<div id="picker-table-wrap" style="overflow-y:auto;flex:1;border:1px solid #e2e5ec;border-radius:4px;">',
+				'<table style="width:100%;border-collapse:collapse;font-size:12px;">',
+					'<thead><tr style="background:#f7f9fa;position:sticky;top:0;z-index:1">',
+						'<th style="padding:8px 10px;width:36px;border-bottom:1px solid #e2e5ec"><input type="checkbox" id="picker-check-all"></th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec">Name</th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:100px">Price</th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:130px">Type of Cost</th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:120px">Payments</th>',
+					'</tr></thead>',
+					'<tbody id="picker-tbody"></tbody>',
+				'</table>',
+			'</div>',
+			'<div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #e2e5ec">',
+				'<span id="picker-count" style="font-size:12px;color:#828b95">0 selected</span>',
+				'<div style="display:flex;gap:8px">',
+					'<button id="picker-add-selected" class="btn-primary-bx" disabled>Add Selected</button>',
+					'<button id="picker-cancel" class="btn-secondary-bx">Cancel</button>',
+				'</div>',
+			'</div>'
+		].join('');
+
+		overlay.appendChild(modal);
+		document.body.appendChild(overlay);
+
+		var selected = {};
+
+		function updateCount() {
+			var n = Object.keys(selected).length;
+			document.getElementById('picker-count').textContent = n + ' selected';
+			document.getElementById('picker-add-selected').disabled = (n === 0);
+		}
+
+		function renderPickerRows() {
+			var query      = document.getElementById('picker-search').value.toLowerCase();
+			var filterType = document.getElementById('picker-filter-type').value;
+			var filterPay  = document.getElementById('picker-filter-payments').value;
+			var tbody2     = document.getElementById('picker-tbody');
+			tbody2.innerHTML = '';
+
+			var filtered = state.productCatalog.filter(function (p) {
+				var name = (p.NAME || p.name || '').toLowerCase();
+				var toc  = String(getPropValue(p, 'PROPERTY_111') || '');
+				var pay  = String(getPropValue(p, 'PROPERTY_109') || '');
+				if (query      && name.indexOf(query) === -1) return false;
+				if (filterType && toc !== filterType)         return false;
+				if (filterPay  && pay !== filterPay)          return false;
+				return true;
+			});
+
+			if (filtered.length === 0) {
+				tbody2.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#a8adb2">No products found</td></tr>';
+				return;
 			}
 
-			function findCatalogProduct(productId) {
-				if (!productId) return null;
-				var pid = String(productId);
-				return state.productCatalog.find(function (p) {
-					return String(p.ID || p.id) === pid;
-				}) || null;
-			}
+			filtered.forEach(function (p) {
+				var pid   = String(p.ID || p.id);
+				var pname = p.NAME || p.name || '';
+				var price = parseFloat(p.PRICE || p.price || 0).toFixed(2);
+				var toc   = PROP_TYPE_OF_COST[getPropValue(p, 'PROPERTY_111')] || '—';
+				var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
+				var isSel = !!selected[pid];
 
-			function renderRows() {
-				var tbody = document.getElementById('product-rows-body');
-				if (!tbody) return;
-				tbody.innerHTML = '';
-				state.rows.forEach(function (row, idx) {
-					tbody.appendChild(buildRowEl(row, idx + 1, idx));
-				});
-				recalcTotals();
-			}
-
-			function buildRowEl(row, num, index) {
-				var tr = document.createElement('tr');
-				tr.setAttribute('data-row-id', row.id);
-				tr.setAttribute('data-row-index', index);
-				tr.draggable = true;
-				tr.style.cursor = 'move';
-
-				var typeOpts = buildEnumOpts([
-					{ id: '207', label: 'Government Cost' },
-					{ id: '209', label: 'Professional Fees' }
-				], row.typeOfCost);
-
-				var payOpts = buildEnumOpts([
-					{ id: '193', label: 'Annually' },
-					{ id: '195', label: 'One Time' },
-					{ id: '197', label: 'Quarterly' },
-					{ id: '199', label: 'Every 2 years' },
-					{ id: '201', label: 'Monthly' },
-					{ id: '203', label: 'In The Order Of Discussion' },
-					{ id: '205', label: 'One time (variable)' }
-				], row.payments);
-
-				var amount = (row.price * row.qty).toFixed(2);
-
-				tr.innerHTML = [
-					'<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
-					'<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
-					'<td></td>',
-					'<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
-					'<td><div class="input-bx-wrapper">',
-					  '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
-					  '<span class="input-bx-suffix">Dh</span></div></td>',
-					'<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
-					'<td><div class="input-bx-wrapper">',
-					  '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
-					  '<span class="input-bx-suffix">%</span></div></td>',
-					'<td><div class="input-bx-wrapper">',
-					  '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
-					  '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
-					'</div></td>',
-					'<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
+				var tr2 = document.createElement('tr');
+				tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;transition:background 0.1s;' + (isSel ? 'background:#f0f8ff;' : '');
+				tr2.innerHTML = [
+					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + '></td>',
+					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + '</td>',
+					'<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
+					'<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
+					'<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
 				].join('');
 
-				tr.querySelector('.js-product-name').addEventListener('input', function (e) { updateRowField(row.id, 'name', e.target.value); });
-				tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) { updateRowField(row.id, 'typeOfCost', e.target.value); });
-				tr.querySelector('.js-payments').addEventListener('change', function (e) { updateRowField(row.id, 'payments', e.target.value); });
-				tr.querySelector('.js-price').addEventListener('input', function (e) {
-					updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
-					recalcRowAmount(row.id);
+				var cb = tr2.querySelector('input[type=checkbox]');
+				cb.addEventListener('change', function (e) {
+					if (e.target.checked) { selected[pid] = p; tr2.style.background = '#f0f8ff'; }
+					else { delete selected[pid]; tr2.style.background = ''; }
+					updateCount();
 				});
-				tr.querySelector('.js-tax').addEventListener('input', function (e) {
-					updateRowField(row.id, 'taxRate', parseFloat(e.target.value) || 0);
-					recalcRowAmount(row.id);
+				tr2.addEventListener('click', function (e) {
+					if (e.target.tagName === 'INPUT') return;
+					cb.checked = !cb.checked;
+					cb.dispatchEvent(new Event('change'));
 				});
-				tr.querySelector('.js-delete-row').addEventListener('click', function () { deleteRow(row.id); });
+				tbody2.appendChild(tr2);
+			});
+		}
 
-				tr.addEventListener('dragstart', function (e) {
-					state.draggedRow = row.id;
-					state.draggedIndex = index;
-					tr.style.opacity = '0.6';
-					tr.style.background = '#f0f8ff';
-					e.dataTransfer.effectAllowed = 'move';
-				});
+		renderPickerRows();
 
-				tr.addEventListener('dragend', function () {
-					tr.style.opacity = '1';
-					tr.style.background = '';
-					state.draggedRow = null;
-					state.draggedIndex = null;
-					document.querySelectorAll('#product-rows-body tr').forEach(function (t) { t.style.borderTop = ''; });
-				});
+		document.getElementById('picker-search').addEventListener('input', renderPickerRows);
+		document.getElementById('picker-filter-type').addEventListener('change', renderPickerRows);
+		document.getElementById('picker-filter-payments').addEventListener('change', renderPickerRows);
 
-				tr.addEventListener('dragover', function (e) {
-					e.preventDefault();
-					e.dataTransfer.dropEffect = 'move';
-					if (state.draggedIndex !== null && state.draggedIndex !== index) {
-						tr.style.borderTop = '2px solid #0080ff';
-					}
-				});
-
-				tr.addEventListener('dragleave', function () { tr.style.borderTop = ''; });
-
-				tr.addEventListener('drop', function (e) {
-					e.preventDefault();
-					if (state.draggedRow === null || state.draggedIndex === null) return;
-					if (state.draggedIndex === index) return;
-					var draggedRowObj = state.rows.find(function (r) { return r.id === state.draggedRow; });
-					if (!draggedRowObj) return;
-					state.rows.splice(state.draggedIndex, 1);
-					state.rows.splice(index, 0, draggedRowObj);
-					tr.style.borderTop = '';
-					renderRows();
-				});
-
-				return tr;
-			}
-
-			function buildEnumOpts(items, currentVal) {
-				var html = '<option value="">-- select --</option>';
-				var normalizedCurrent = String(currentVal || '').trim();
-				items.forEach(function (item) {
-					var sel = (String(item.id).trim() === normalizedCurrent) ? ' selected' : '';
-					html += '<option value="' + item.id + '"' + sel + '>' + escHtml(item.label) + '</option>';
-				});
-				return html;
-			}
-
-			function updateRowField(rowId, field, value) {
-				var row = findRow(rowId);
-				if (row) row[field] = value;
-			}
-
-			function recalcRowAmount(rowId) {
-				var row = findRow(rowId);
-				if (!row) return;
-				var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
-				if (tr) {
-					var amtInput = tr.querySelector('.js-amount');
-					if (amtInput) amtInput.value = (row.price * row.qty).toFixed(2);
+		document.getElementById('picker-check-all').addEventListener('change', function (e) {
+			document.querySelectorAll('#picker-tbody input[type=checkbox]').forEach(function (cb) {
+				if (cb.checked !== e.target.checked) {
+					cb.checked = e.target.checked;
+					cb.dispatchEvent(new Event('change'));
 				}
-				recalcTotals();
-			}
+			});
+		});
 
-			function deleteRow(rowId) {
-				state.rows = state.rows.filter(function (r) { return r.id !== rowId; });
-				var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
-				if (tr) tr.remove();
-				document.querySelectorAll('#product-rows-body tr').forEach(function (tr2, i) {
-					var numEl = tr2.querySelector('.row-number span:last-child');
-					if (numEl) numEl.textContent = i + 1;
-				});
-				recalcTotals();
-			}
+		document.getElementById('picker-close').addEventListener('click',  function () { overlay.remove(); });
+		document.getElementById('picker-cancel').addEventListener('click', function () { overlay.remove(); });
+		overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 
-			function findRow(rowId) {
-				return state.rows.find(function (r) { return r.id === rowId; }) || null;
-			}
-
-			function addEmptyRow() {
+		document.getElementById('picker-add-selected').addEventListener('click', function () {
+			Object.values(selected).forEach(function (p) {
+				var toc = getPropValue(p, 'PROPERTY_111');
+				var pay = getPropValue(p, 'PROPERTY_109');
 				var row = {
-					id: state.nextRowId++, productId: '', name: '',
-					price: 0, qty: 1, taxRate: 0, taxIncluded: false,
-					typeOfCost: '', payments: '',
-					sort: state.rows.length * 10, spaId: null
+					id:          state.nextRowId++,
+					productId:   String(p.ID || p.id),
+					name:        p.NAME || p.name || '',
+					price:       parseFloat(p.PRICE || p.price || 0),
+					qty:         1,
+					taxRate:     0,
+					taxIncluded: false,
+					typeOfCost:  toc,
+					payments:    pay,
+					sort:        state.rows.length * 10,
+					spaId:       null
 				};
+				log('Added from catalog: ' + row.name + ', typeOfCost=' + row.typeOfCost + ', payments=' + row.payments);
 				state.rows.push(row);
-				var tbody = document.getElementById('product-rows-body');
-				if (tbody) tbody.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
-				recalcTotals();
-			}
+				var tbody3 = document.getElementById('product-rows-body');
+				if (tbody3) tbody3.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
+			});
+			recalcTotals();
+			overlay.remove();
+		});
+	}
 
-			function recalcTotals() {
-				var trs = document.querySelectorAll('#product-rows-body tr');
-				trs.forEach(function (tr2) {
-					var rowId = parseInt(tr2.getAttribute('data-row-id'));
-					var row = findRow(rowId);
-					if (!row) return;
+	// ─── Product Edit / Create Modal ──────────────────────────────────────────
+	function showProductEditModal(productId) {
+		var product = productId ? findCatalogProduct(productId) : null;
+		var isNew   = !product;
 
-					var priceEl = tr2.querySelector('.js-price');
-					var taxEl = tr2.querySelector('.js-tax');
-					var nameEl = tr2.querySelector('.js-product-name');
-					var tocEl = tr2.querySelector('.js-type-of-cost');
-					var payEl = tr2.querySelector('.js-payments');
+		var overlay = document.createElement('div');
+		overlay.id = 'product-edit-modal';
+		overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
-					if (priceEl) row.price = parseFloat(priceEl.value) || 0;
-					if (taxEl) row.taxRate = parseFloat(taxEl.value) || 0;
-					if (nameEl) row.name = nameEl.value;
-					if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
-					if (payEl && payEl.value) row.payments = payEl.value;
+		var modal = document.createElement('div');
+		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;display:flex;flex-direction:column;gap:14px;';
 
-					var amtEl = tr2.querySelector('.js-amount');
-					if (amtEl) amtEl.value = (row.price * row.qty).toFixed(2);
-				});
+		modal.innerHTML = [
+			'<div style="display:flex;justify-content:space-between;align-items:center">',
+				'<strong style="font-size:15px;color:#333">' + (isNew ? 'Create New Product' : 'Edit Product') + '</strong>',
+				'<button id="edit-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>',
+			'</div>',
+			'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">',
 
-				var raw = 0, taxTotal = 0;
-				state.rows.forEach(function (r) {
-					var base = r.price * r.qty;
-					raw += base;
-					taxTotal += base * (r.taxRate / 100);
-				});
+				'<div style="display:flex;flex-direction:column;gap:4px;grid-column:span 2">',
+					'<label style="font-weight:600;color:#535c69">Product Name *</label>',
+					'<input id="ep-name" class="input-bx" value="' + escHtml(product ? (product.NAME || product.name || '') : '') + '">',
+				'</div>',
 
-				setText('total-raw', 'Dh ' + raw.toFixed(2));
-				setText('total-before-tax', 'Dh ' + raw.toFixed(2));
-				setText('total-tax', 'Dh ' + taxTotal.toFixed(2));
-				setText('total-amount', 'Dh ' + (raw + taxTotal).toFixed(2));
-			}
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
+					'<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
+				'</div>',
 
-			function setText(id, val) {
-				var el = document.getElementById(id);
-				if (el) el.textContent = val;
-			}
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Type of Cost</label>',
+					'<select id="ep-type-of-cost" class="input-bx select-bx">' +
+						buildEnumOpts([{id:'207',label:'Government Cost'},{id:'209',label:'Professional Fees'}],
+							product ? getPropValue(product, 'PROPERTY_111') : '') +
+					'</select>',
+				'</div>',
 
-			function saveAndSync() {
-				recalcTotals();
-				var rows = state.rows.filter(function (r) { return r.name || r.productId; });
-				
-				if (rows.length === 0) {
-					setStatus('⚠ No products to save', 'status-warning');
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Payments</label>',
+					'<select id="ep-payments" class="input-bx select-bx">' +
+						buildEnumOpts([
+							{id:'193',label:'Annually'},{id:'195',label:'One Time'},{id:'197',label:'Quarterly'},
+							{id:'199',label:'Every 2 years'},{id:'201',label:'Monthly'},
+							{id:'203',label:'In The Order Of Discussion'},{id:'205',label:'One time (variable)'}
+						], product ? getPropValue(product, 'PROPERTY_109') : '') +
+					'</select>',
+				'</div>',
+
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Company Application Type</label>',
+					'<select id="ep-company-type" class="input-bx select-bx">' +
+						buildEnumOpts([
+							{id:'155',label:'Mainland LLC'},{id:'157',label:'Free Zone'},{id:'159',label:'Branch DET'},
+							{id:'161',label:'Branch FZ'},{id:'163',label:'Representative Office DET'},
+							{id:'165',label:'Representative Office FZ'},{id:'167',label:'Freelance License'}
+						], product ? getPropValue(product, 'PROPERTY_99') : '') +
+					'</select>',
+				'</div>',
+
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Visa Type</label>',
+					'<select id="ep-visa-type" class="input-bx select-bx">' +
+						buildEnumOpts([
+							{id:'171',label:'Investor Visa'},{id:'173',label:'Employment Visa'},{id:'175',label:'Golden Visa'},
+							{id:'177',label:'Property Visa'},{id:'179',label:'Talent Visa'},
+							{id:'181',label:'Influencer Visa'},{id:'183',label:'Family Visa'}
+						], product ? getPropValue(product, 'PROPERTY_101') : '') +
+					'</select>',
+				'</div>',
+
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Visa Status</label>',
+					'<select id="ep-visa-status" class="input-bx select-bx">' +
+						buildEnumOpts([
+							{id:'187',label:'New'},{id:'189',label:'Renewal'},{id:'191',label:'Not Specified'}
+						], product ? getPropValue(product, 'PROPERTY_103') : '') +
+					'</select>',
+				'</div>',
+
+			'</div>',
+			'<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid #e2e5ec">',
+				'<button id="ep-save" class="btn-primary-bx">' + (isNew ? 'Create Product' : 'Save Changes') + '</button>',
+				'<button id="ep-cancel" class="btn-secondary-bx">Cancel</button>',
+			'</div>'
+		].join('');
+
+		overlay.appendChild(modal);
+		document.body.appendChild(overlay);
+
+		document.getElementById('edit-close').addEventListener('click', function () { overlay.remove(); });
+		document.getElementById('ep-cancel').addEventListener('click', function () { overlay.remove(); });
+		overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+		document.getElementById('ep-save').addEventListener('click', function () {
+			var name = document.getElementById('ep-name').value.trim();
+			if (!name) { alert('Product name is required'); return; }
+
+			var toc   = document.getElementById('ep-type-of-cost').value;
+			var pay   = document.getElementById('ep-payments').value;
+			var ct    = document.getElementById('ep-company-type').value;
+			var vt    = document.getElementById('ep-visa-type').value;
+			var vs    = document.getElementById('ep-visa-status').value;
+			var price = parseFloat(document.getElementById('ep-price').value) || 0;
+
+			var btn = document.getElementById('ep-save');
+			btn.disabled = true; btn.textContent = 'Saving…';
+
+			if (isNew) {
+				if (!state.iblockId) {
+					alert('Cannot create product: catalog iblockId not loaded. Refresh and try again.');
+					btn.disabled = false; btn.textContent = 'Create Product';
 					return;
 				}
+				var addFields = { iblockId: state.iblockId, name: name, active: 'Y' };
+				if (toc) addFields['property111'] = toc;
+				if (pay) addFields['property109'] = pay;
+				if (ct)  addFields['property99']  = ct;
+				if (vt)  addFields['property101'] = vt;
+				if (vs)  addFields['property103'] = vs;
 
-				showSaveModal();
-
-				var method = state.entityType === 'deal'
-					? 'crm.deal.productrows.set'
-					: 'crm.lead.productrows.set';
-
-				var productRows = rows.map(function (r, idx) {
-					return {
-						PRODUCT_ID: r.productId || 0,
-						PRODUCT_NAME: r.name,
-						PRICE: r.price,
-						QUANTITY: r.qty,
-						TAX_RATE: r.taxRate,
-						TAX_INCLUDED: r.taxIncluded ? 'Y' : 'N',
-						SORT: (idx + 1) * 10
-					};
-				});
-
-				BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+				BX24.callMethod('catalog.product.add', { fields: addFields }, function (res) {
 					if (res.error()) {
-						closeSaveModal(false, 'Save failed');
-						setStatus('✗ Error saving products', 'status-danger');
+						alert('Error creating product: ' + res.error());
+						btn.disabled = false; btn.textContent = 'Create Product';
 						return;
 					}
-					closeSaveModal(true, rows.length + ' product' + (rows.length !== 1 ? 's' : ''));
-					setStatus('✓ Successfully saved', 'status-success');
-				});
-			}
+					var newData = res.data();
+					var newId   = newData && (newData.element ? newData.element.id : newData);
+					log('Product created #' + newId);
 
-			function showSaveModal() {
-				var overlay = document.getElementById('save-modal-overlay');
-				if (overlay) {
-					overlay.classList.add('visible');
-				}
-			}
-
-			function closeSaveModal(success, detail) {
-				setTimeout(function () {
-					var overlay = document.getElementById('save-modal-overlay');
-					var icon = document.getElementById('save-modal-icon');
-					var title = document.getElementById('save-modal-title');
-					var message = document.getElementById('save-modal-message');
-					var detailsDiv = document.getElementById('save-modal-details');
-
-					if (success) {
-						icon.textContent = '✓';
-						icon.classList.remove('saving');
-						icon.classList.add('success');
-						title.textContent = 'All Changes Saved!';
-						message.textContent = 'Your products have been updated successfully.';
-						detailsDiv.innerHTML = '<div class="detail-row"><span>Products saved:</span><strong>' + detail + '</strong></div>';
-					} else {
-						icon.textContent = '✗';
-						icon.classList.remove('saving');
-						icon.style.color = '#ff5050';
-						title.textContent = detail;
-						message.textContent = 'Please try again or contact support.';
-						detailsDiv.innerHTML = '';
+					if (newId && price > 0) {
+						BX24.callMethod('catalog.price.add', {
+							fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
+						}, function () {});
 					}
 
-					setTimeout(function () {
-						if (overlay) {
-							overlay.classList.remove('visible');
+					loadCatalogProducts(function () {
+						overlay.remove();
+						var row = {
+							id: state.nextRowId++, productId: String(newId), name: name,
+							price: price, qty: 1, taxRate: 0, taxIncluded: false,
+							typeOfCost: toc, payments: pay,
+							sort: state.rows.length * 10, spaId: null
+						};
+						state.rows.push(row);
+						var tbody4 = document.getElementById('product-rows-body');
+						if (tbody4) tbody4.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
+						recalcTotals();
+					});
+				});
+
+			} else {
+				BX24.callMethod('catalog.product.get', { id: productId }, function (getRes) {
+					var prod = (!getRes.error() && getRes.data()) ? (getRes.data().element || getRes.data()) : null;
+
+					function getVid(p, key) {
+						if (!p) return 0;
+						var v = p[key];
+						return (v && v.valueId) ? v.valueId : 0;
+					}
+
+					var updFields = { name: name, active: 'Y' };
+					if (toc) updFields['property111'] = { value: toc, valueId: getVid(prod, 'property111') };
+					if (pay) updFields['property109'] = { value: pay, valueId: getVid(prod, 'property109') };
+					if (ct)  updFields['property99']  = { value: ct,  valueId: getVid(prod, 'property99')  };
+					if (vt)  updFields['property101'] = { value: vt,  valueId: getVid(prod, 'property101') };
+					if (vs)  updFields['property103'] = { value: vs,  valueId: getVid(prod, 'property103') };
+
+					BX24.callMethod('catalog.product.update', { id: productId, fields: updFields }, function (res) {
+						if (res.error()) {
+							alert('Error updating product: ' + res.error());
+							btn.disabled = false; btn.textContent = 'Save Changes';
+							return;
 						}
-					}, 1800);
-				}, 800);
+						if (price > 0) {
+							BX24.callMethod('catalog.price.list', { filter: { productId: productId, catalogGroupId: 1 } }, function (pr) {
+								var prices = (!pr.error() && pr.data()) ? pr.data() : [];
+								if (prices.length > 0) {
+									BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: 'AED' } }, function () {});
+								} else {
+									BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: 'AED' } }, function () {});
+								}
+							});
+						}
+						log('Product #' + productId + ' updated');
+						loadCatalogProducts(function () { overlay.remove(); });
+					});
+				});
 			}
+		});
+	}
 
-			function bindActions() {
-				var btn1 = document.getElementById('btn-add-product');
-				var btn2 = document.getElementById('btn-select-product');
-				var btn3 = document.getElementById('btn-save');
-				if (btn1) btn1.addEventListener('click', addEmptyRow);
-				if (btn2) btn2.addEventListener('click', function () { alert('Catalog selector not available in this version. Use "Add Product" to create rows manually.'); });
-				if (btn3) btn3.addEventListener('click', saveAndSync);
+	// ─── Save & Sync ──────────────────────────────────────────────────────────
+	function saveAndSync() {
+		recalcTotals();
+		var rows = state.rows.filter(function (r) { return r.name || r.productId; });
+
+		if (rows.length === 0) {
+			setStatus('⚠ No products to save', 'status-warning');
+			return;
+		}
+
+		// Debug dump before save
+		console.log('[FeeSyncWidget] Pre-save row data:', JSON.stringify(rows.map(function(r){
+			return { id: r.id, name: r.name, typeOfCost: r.typeOfCost, payments: r.payments, price: r.price };
+		})));
+
+		showSaveModal('saving');
+		log('Saving ' + rows.length + ' row(s) to ' + state.entityType + ' #' + state.entityId);
+
+		var method = state.entityType === 'deal'
+			? 'crm.deal.productrows.set'
+			: 'crm.lead.productrows.set';
+
+		var productRows = rows.map(function (r, idx) {
+			return {
+				PRODUCT_ID:   r.productId || 0,
+				PRODUCT_NAME: r.name,
+				PRICE:        r.price,
+				QUANTITY:     r.qty,
+				TAX_RATE:     r.taxRate,
+				TAX_INCLUDED: r.taxIncluded ? 'Y' : 'N',
+				SORT:         (idx + 1) * 10
+			};
+		});
+
+		BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+			if (res.error()) {
+				closeSaveModal(false, 'Save failed');
+				setStatus('✗ Error saving products', 'status-danger');
+				log('Error: ' + res.error());
+				return;
 			}
+			log('Product rows saved OK');
 
-			function escHtml(s) {
-				return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+			updateCatalogProducts(rows, function () {
+				var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
+				updateEntityOpportunity(totalAmt, function () {
+					syncSpaItems(rows, function () {
+						closeSaveModal(true, rows.length + ' product' + (rows.length !== 1 ? 's' : ''));
+						setStatus('✓ Saved & synced', 'status-success');
+						log('All done');
+					});
+				});
+			});
+		});
+	}
+
+	function showSaveModal(state2) {
+		var overlay = document.getElementById('save-modal-overlay');
+		var icon    = document.getElementById('save-modal-icon');
+		var title   = document.getElementById('save-modal-title');
+		var message = document.getElementById('save-modal-message');
+		document.getElementById('save-modal-details').innerHTML = '';
+		icon.textContent    = '⚙️';
+		icon.style.cssText  = 'font-size:48px;margin-bottom:16px;display:block;animation:spin 1s linear infinite';
+		title.textContent   = 'Saving Changes…';
+		message.textContent = 'Please wait while we update your data';
+		if (overlay) overlay.classList.add('visible');
+	}
+
+	function closeSaveModal(success, detail) {
+		setTimeout(function () {
+			var overlay    = document.getElementById('save-modal-overlay');
+			var icon       = document.getElementById('save-modal-icon');
+			var title      = document.getElementById('save-modal-title');
+			var message    = document.getElementById('save-modal-message');
+			var detailsDiv = document.getElementById('save-modal-details');
+
+			if (success) {
+				icon.style.animation = 'none';
+				icon.textContent   = '✅';
+				title.textContent  = 'All Changes Saved!';
+				message.textContent = 'Your products have been synced successfully.';
+				detailsDiv.innerHTML = '<div class="detail-row"><span>Products saved:</span><strong>' + detail + '</strong></div>';
+			} else {
+				icon.style.animation = 'none';
+				icon.textContent   = '❌';
+				title.textContent  = detail || 'Save Failed';
+				message.textContent = 'Please try again or contact support.';
+				detailsDiv.innerHTML = '';
 			}
-
-			return { init: init };
-		})();
-
-		// Initialize on BX24 ready
-		BX24.init(function () {
-			BX24.fitWindow();
-
-			var initialLoading = document.getElementById('initial-loading');
-			var entityTypeLabel = document.getElementById('entity-type-label');
-			var entityIdLabel = document.getElementById('entity-id-label');
-
-			initialLoading.classList.add('visible');
 
 			setTimeout(function () {
-				var info = BX24.placement.info();
-				var detectedType = null;
-				var detectedId = null;
+				if (overlay) overlay.classList.remove('visible');
+			}, 2000);
+		}, 600);
+	}
 
-				if (info && info.placement) {
-					if (info.placement.indexOf('DEAL') !== -1) detectedType = 'deal';
-					else if (info.placement.indexOf('LEAD') !== -1) detectedType = 'lead';
-					if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
-				}
-
-				if (detectedType && detectedId) {
-					var typeLabel = detectedType === 'deal' ? 'Deal' : 'Lead';
-					entityTypeLabel.textContent = typeLabel;
-					entityIdLabel.textContent = '#' + detectedId;
-
-					FeeSyncWidget.init(detectedType, detectedId, function () {
-						initialLoading.classList.remove('visible');
-					});
-				} else {
-					initialLoading.classList.remove('visible');
-					document.getElementById('sync-status').textContent = '✗ Error: Could not detect Deal/Lead';
-					document.getElementById('sync-status').className = 'status-danger';
-				}
-			}, 600);
+	// ─── Update catalog products via catalog.product.update ───────────────────
+	function updateCatalogProducts(rows, cb) {
+		var toUpdate = rows.filter(function (r) {
+			return r.productId && (r.typeOfCost || r.payments);
 		});
-	</script>
 
+		if (toUpdate.length === 0) { log('No catalog products to update'); if (cb) cb(); return; }
+		log('Updating ' + toUpdate.length + ' catalog product(s)');
+
+		var pending = toUpdate.length;
+
+		toUpdate.forEach(function (row) {
+			BX24.callMethod('catalog.product.get', { id: row.productId }, function (getRes) {
+				var fields = {};
+				var prod   = (!getRes.error() && getRes.data()) ? (getRes.data().element || getRes.data()) : null;
+
+				function getVid(p, key) {
+					if (!p) return 0;
+					var v = p[key];
+					return (v && v.valueId) ? v.valueId : 0;
+				}
+
+				if (row.typeOfCost) fields['property111'] = { value: String(row.typeOfCost), valueId: getVid(prod, 'property111') };
+				if (row.payments)   fields['property109'] = { value: String(row.payments),   valueId: getVid(prod, 'property109') };
+
+				console.log('[FeeSyncWidget] catalog.product.update #' + row.productId, JSON.stringify(fields));
+
+				BX24.callMethod('catalog.product.update', { id: row.productId, fields: fields }, function (res) {
+					if (res.error()) log('Error updating product #' + row.productId + ': ' + res.error());
+					else log('Product #' + row.productId + ' updated OK');
+					if (--pending === 0 && cb) cb();
+				});
+			});
+		});
+	}
+
+	function updateEntityOpportunity(amount, cb) {
+		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+		BX24.callMethod(method, {
+			id: state.entityId,
+			fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y' }
+		}, function (res) {
+			if (res.error()) log('Opportunity update error: ' + res.error());
+			else log('Opportunity → ' + amount.toFixed(2));
+			if (cb) cb();
+		});
+	}
+
+	// ─── SPA Sync ─────────────────────────────────────────────────────────────
+	function syncSpaItems(rows, cb) {
+		var profRows  = rows.filter(function (r) { return r.typeOfCost === '209'; });
+		var govRows   = rows.filter(function (r) { return r.typeOfCost === '207'; });
+		var otherRows = rows.filter(function (r) { return r.typeOfCost !== '209' && r.typeOfCost !== '207'; });
+
+		if (otherRows.length > 0) log('Skipping ' + otherRows.length + ' row(s) with no Type of Cost');
+		log('SPA: ' + profRows.length + ' Prof Fees, ' + govRows.length + ' Gov Cost');
+
+		syncSpaGroup(1058, SPA_PROF_FIELDS, DEAL_PROF_FIELD, profRows, function () {
+			syncSpaGroup(1062, SPA_GOV_FIELDS, DEAL_GOV_FIELD, govRows, cb);
+		});
+	}
+
+	function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
+		if (rows.length === 0) { if (cb) cb(); return; }
+		var spaIds  = [];
+		var pending = rows.length;
+
+		rows.forEach(function (row) {
+			var fields = buildSpaFields(row, fieldMap);
+
+			if (row.spaId) {
+				BX24.callMethod('crm.item.update', {
+					entityTypeId: entityTypeId, id: row.spaId, fields: fields
+				}, function (res) {
+					if (res.error()) log('SPA update error: ' + res.error());
+					else { log('SPA #' + row.spaId + ' updated'); spaIds.push(row.spaId); }
+					if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+				});
+			} else {
+				BX24.callMethod('crm.item.add', {
+					entityTypeId: entityTypeId,
+					fields: Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields)
+				}, function (res) {
+					if (res.error()) {
+						log('SPA create error: ' + res.error());
+					} else {
+						var newId = (res.data() && res.data().item) ? res.data().item.id : null;
+						if (newId) { row.spaId = newId; spaIds.push(newId); log('SPA created #' + newId); }
+					}
+					if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+				});
+			}
+		});
+	}
+
+	function buildSpaFields(row, fieldMap) {
+		var fields = {};
+		if (row.typeOfCost) {
+			var tocVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
+			if (tocVal !== undefined) fields[fieldMap.typeOfCost] = tocVal;
+			else log('WARN: SPA typeOfCost mapping failed for ' + row.typeOfCost);
+		}
+		if (row.payments) {
+			var payVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
+			if (payVal !== undefined) fields[fieldMap.payments] = payVal;
+			else log('WARN: SPA payments mapping failed for ' + row.payments);
+		}
+		return fields;
+	}
+
+	function mapSpaEnumValueById(fieldKey, catalogEnumId) {
+		var directMaps = {
+			'ufCrm15_1779367818775': { '209': '445', '207': '447' },
+			'ufCrm15_1779367955682': { '193': '449', '195': '451', '197': '453', '199': '455', '201': '457', '203': '459', '205': '461' },
+			'ufCrm17_1779370162991': { '207': '497', '209': '499' },
+			'ufCrm17_1779370261982': { '193': '501', '195': '503', '197': '505', '199': '507', '201': '509', '203': '511', '205': '513' }
+		};
+		var map = directMaps[fieldKey];
+		if (!map || !catalogEnumId) return undefined;
+		return map[String(catalogEnumId)] || undefined;
+	}
+
+	function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
+		if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') { if (cb) cb(); return; }
+		var updateFields = {};
+		updateFields[dealLinkField] = spaIds;
+		BX24.callMethod('crm.deal.update', { id: state.entityId, fields: updateFields }, function (res) {
+			if (res.error()) log('SPA link error: ' + res.error());
+			else log('Deal linked to ' + spaIds.length + ' SPA items (type ' + entityTypeId + ')');
+			if (cb) cb();
+		});
+	}
+
+	// ─── Bind actions ─────────────────────────────────────────────────────────
+	function bindActions() {
+		function rebind(id, handler) {
+			var el = document.getElementById(id);
+			if (!el) return;
+			var clone = el.cloneNode(true);
+			el.parentNode.replaceChild(clone, el);
+			clone.addEventListener('click', handler);
+		}
+		rebind('btn-add-product',    addEmptyRow);
+		rebind('btn-select-product', showProductPickerModal);
+		rebind('btn-save',           saveAndSync);
+		rebind('btn-edit-product',   function () {
+			// If a row is focused, offer to edit that product; else create new
+			var focused = document.activeElement;
+			var tr = focused ? focused.closest('tr[data-row-id]') : null;
+			var pid = null;
+			if (tr) {
+				var rowId = parseInt(tr.getAttribute('data-row-id'));
+				var row   = findRow(rowId);
+				if (row && row.productId) pid = row.productId;
+			}
+			showProductEditModal(pid);
+		});
+	}
+
+	// ─── Helpers ──────────────────────────────────────────────────────────────
+	function escHtml(s) {
+		return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+
+	return { init: init };
+})();
+
+// ─── BX24 Bootstrap ─────────────────────────────────────────────────────────
+BX24.init(function () {
+	BX24.fitWindow();
+
+	var initialLoading  = document.getElementById('initial-loading');
+	var entityTypeLabel = document.getElementById('entity-type-label');
+	var entityIdLabel   = document.getElementById('entity-id-label');
+
+	initialLoading.classList.add('visible');
+
+	var info = BX24.placement.info();
+	var detectedType = null;
+	var detectedId   = null;
+
+	if (info && info.placement) {
+		if (info.placement.indexOf('DEAL') !== -1)      detectedType = 'deal';
+		else if (info.placement.indexOf('LEAD') !== -1) detectedType = 'lead';
+		if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
+	}
+
+	if (detectedType && detectedId) {
+		entityTypeLabel.textContent = (detectedType === 'deal' ? 'Deal ' : 'Lead ');
+		entityIdLabel.textContent   = '#' + detectedId;
+
+		FeeSyncWidget.init(detectedType, detectedId, function () {
+			initialLoading.classList.remove('visible');
+		});
+	} else {
+		initialLoading.classList.remove('visible');
+		var st = document.getElementById('sync-status');
+		st.textContent = '✗ Error: Could not detect Deal/Lead context';
+		st.className   = 'status-danger';
+	}
+});
+</script>
 </body>
 </html>
