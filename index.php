@@ -35,22 +35,27 @@
 			margin: 0 auto;
 		}
 
-		/* ── Entity selector bar ───────────────────────────────── */
-		.entity-selector-bar {
-			background: #f7f9fa;
-			border: 1px solid #e2e5ec;
-			border-radius: 6px;
-			padding: 12px 15px;
-			margin-bottom: 20px;
+		/* ── Header with entity title ──────────────────────────── */
+		.widget-header {
 			display: flex;
+			justify-content: space-between;
 			align-items: center;
-			gap: 12px;
-			flex-wrap: wrap;
+			margin-bottom: 20px;
+			padding-bottom: 16px;
+			border-bottom: 1px solid #e2e5ec;
 		}
-		.entity-selector-bar label {
+		.widget-title {
+			font-size: 18px;
 			font-weight: 700;
-			color: #535c69;
-			white-space: nowrap;
+			color: #222;
+		}
+		.entity-info {
+			font-size: 12px;
+			color: #828b95;
+			font-weight: 600;
+		}
+		.entity-info strong {
+			color: #0080ff;
 		}
 
 		/* ── Action bar ────────────────────────────────────────── */
@@ -115,18 +120,6 @@
 		.btn-save-sync:hover  { background-color: #18b0e0; }
 		.btn-save-sync:active { background-color: #009ec8; }
 
-		.btn-icon-bx {
-			background: transparent;
-			border: none;
-			color: #a8adb2;
-			font-size: 18px;
-			cursor: pointer;
-			padding: 6px 10px;
-			border-radius: 4px;
-			line-height: 1;
-		}
-		.btn-icon-bx:hover { background-color: #f5f7f8; color: #535c69; }
-
 		.btn-delete {
 			color: #a8adb2;
 			background: transparent;
@@ -166,15 +159,7 @@
 			pointer-events: none;
 			font-size: 12px;
 		}
-		.input-bx-prefix {
-			position: absolute;
-			left: 8px;
-			color: #a8adb2;
-			pointer-events: none;
-			font-size: 12px;
-		}
 		.input-bx-with-suffix  { padding-right: 30px !important; }
-		.input-bx-with-prefix  { padding-left:  28px !important; }
 
 		.select-bx {
 			appearance: none;
@@ -218,11 +203,18 @@
 			border-bottom: 1px solid #eef2f4;
 			vertical-align: middle;
 		}
-		.product-table tbody tr:last-child td {
-			border-bottom: none;
+		.product-table tbody tr {
+			transition: background-color 0.15s ease;
 		}
 		.product-table tbody tr:hover {
 			background-color: #fafbfc;
+		}
+		.product-table tbody tr.dragging {
+			opacity: 0.6;
+			background: #f0f8ff !important;
+		}
+		.product-table tbody tr.drag-over {
+			border-top: 2px solid #0080ff;
 		}
 
 		.row-number {
@@ -238,33 +230,12 @@
 			color: #d0d4da;
 			font-size: 16px;
 			user-select: none;
+			transition: color 0.15s ease;
+		}
+		tr:hover .drag-handle {
+			color: #0080ff;
 		}
 		.drag-handle:active { cursor: grabbing; }
-
-		/* Product image thumbnail placeholder */
-		.img-placeholder {
-			width: 32px;
-			height: 32px;
-			border: 1px dashed #a8adb2;
-			border-radius: 4px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			color: #a8adb2;
-			background: #fdfdfd;
-			cursor: pointer;
-			font-size: 16px;
-			flex-shrink: 0;
-		}
-		.img-placeholder:hover { border-color: #0080ff; color: #0080ff; }
-
-		/* Product name + select stacked cell */
-		.product-cell {
-			display: flex;
-			flex-direction: column;
-			gap: 4px;
-			min-width: 160px;
-		}
 
 		/* ── Totals ────────────────────────────────────────────── */
 		.totals-container {
@@ -331,22 +302,6 @@
 			line-height: 1.5;
 		}
 
-		/* ── Empty state ───────────────────────────────────────── */
-		#empty-state {
-			text-align: center;
-			padding: 60px 20px;
-			color: #a8adb2;
-		}
-		#empty-state .empty-icon {
-			font-size: 40px;
-			margin-bottom: 12px;
-			opacity: 0.4;
-		}
-		#empty-state p {
-			margin: 0;
-			font-size: 14px;
-		}
-
 		/* ── Loading overlay ───────────────────────────────────── */
 		#loading-overlay {
 			display: none;
@@ -382,27 +337,10 @@
 			letter-spacing: 0.6px;
 			margin: 0 0 10px 2px;
 		}
-
-		/* ── Debug info ────────────────────────────────────────── */
-		.debug-info {
-			background: #fff3cd;
-			border: 1px solid #ffc107;
-			border-radius: 4px;
-			padding: 10px;
-			margin-bottom: 10px;
-			font-size: 12px;
-			color: #856404;
-		}
 	</style>
 </head>
 <body>
 <div class="widget-container" style="position:relative;">
-
-	<!-- Debug Notice -->
-	<div class="debug-info">
-		<strong>🔍 Debug Mode Enabled:</strong> Open F12 Console to see detailed API responses. 
-		After loading data, run: <code>dumpApiResponses()</code>
-	</div>
 
 	<!-- Loading overlay (shown while JS fetches data) -->
 	<div id="loading-overlay">
@@ -410,122 +348,100 @@
 		<span id="loading-text">Loading…</span>
 	</div>
 
-	<!-- ── Entity selector ──────────────────────────────────────────────── -->
-	<div class="entity-selector-bar">
-		<label for="select-entity">Select Deal / Lead:</label>
-		<select id="select-entity" class="input-bx select-bx" style="max-width:420px; flex:1;">
-			<option value="">-- Choose Deal or Lead to Edit --</option>
-		</select>
-		<!-- Badge showing currently loaded entity -->
-		<span id="entity-badge" style="display:none; font-size:11px; font-weight:700;
-			padding:3px 10px; border-radius:12px; background:#e5f2ff; color:#0066cc;
-			white-space:nowrap;">
-		</span>
+	<!-- Header with entity info -->
+	<div class="widget-header">
+		<div>
+			<div class="widget-title">Product Fee Sync</div>
+			<div class="entity-info">
+				<span id="entity-type-label"></span> <strong id="entity-id-label"></strong>
+			</div>
+		</div>
 	</div>
 
-	<!-- ── Editor (hidden until entity is selected) ─────────────────────── -->
-	<div id="editor-content" style="display:none;">
+	<!-- Action bar -->
+	<div class="action-bar">
+		<div class="left-actions">
+			<button id="btn-add-product" class="btn-primary-bx">+ Add Product</button>
+			<button id="btn-select-product" class="btn-secondary-bx">Select from Catalog</button>
+			<button id="btn-edit-product" class="btn-secondary-bx">Create New Product</button>
+		</div>
+		<button id="btn-save" class="btn-save-sync">💾 Save & Sync</button>
+	</div>
 
-		<!-- Action bar -->
-		<div class="action-bar">
-			<div class="left-actions">
-				<!-- JS will also inject btn-edit-product here via addEditProductBtn() -->
-				<button id="btn-add-product" class="btn-primary-bx">+ Add product</button>
-				<button id="btn-select-product" class="btn-secondary-bx">Select from catalog</button>
-				<button id="btn-edit-product" class="btn-secondary-bx">Edit / Create product</button>
+	<!-- Product grid -->
+	<div class="section-label">Products (Drag to reorder)</div>
+	<div class="table-responsive">
+		<table class="product-table">
+			<thead>
+				<tr>
+					<th style="width:50px;">#</th>
+					<th>Product Name</th>
+					<th style="width:44px;"></th>
+					<th style="width:170px;">Type of Cost</th>
+					<th style="width:140px;">Price</th>
+					<th style="width:140px;">Payments</th>
+					<th style="width:110px;">Tax %</th>
+					<th style="width:140px;">Amount</th>
+					<th style="width:36px;"></th>
+				</tr>
+			</thead>
+			<tbody id="product-rows-body">
+				<!-- rows injected by fee-sync-widget.js -->
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Totals -->
+	<div class="totals-container">
+		<div class="totals-box">
+			<div class="total-row">
+				<span>Subtotal (no tax):</span>
+				<strong id="total-raw">Dh 0.00</strong>
 			</div>
-			<!-- <button class="btn-icon-bx" title="More options">•••</button> -->
-		</div>
-
-		<!-- Product grid -->
-		<div class="section-label">Products</div>
-		<div class="table-responsive">
-			<table class="product-table">
-				<thead>
-					<tr>
-						<th style="width:50px;">#</th>
-						<th>Product</th>
-						<th style="width:44px;"></th><!-- image -->
-						<th style="width:170px;">Type of Cost</th>
-						<th style="width:140px;">Price</th>
-						<th style="width:140px;">Payments</th>
-						<th style="width:110px;">Tax %</th>
-						<th style="width:140px;">Amount</th>
-						<th style="width:36px;"></th><!-- delete -->
-					</tr>
-				</thead>
-				<tbody id="product-rows-body">
-					<!-- rows injected by fee-sync-widget.js -->
-				</tbody>
-			</table>
-		</div>
-
-		<!-- Totals -->
-		<div class="totals-container">
-			<div class="totals-box">
-				<div class="total-row">
-					<span>Subtotal (no tax):</span>
-					<strong id="total-raw">Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Delivery:</span>
-					<strong>Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Discount:</span>
-					<strong>Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Total before tax:</span>
-					<strong id="total-before-tax">Dh 0.00</strong>
-				</div>
-				<div class="total-row">
-					<span>Tax total:</span>
-					<strong id="total-tax">Dh 0.00</strong>
-				</div>
-				<div class="total-row grand-total">
-					<span>Total amount:</span>
-					<strong id="total-amount">Dh 0.00</strong>
-				</div>
+			<div class="total-row">
+				<span>Delivery:</span>
+				<strong>Dh 0.00</strong>
+			</div>
+			<div class="total-row">
+				<span>Discount:</span>
+				<strong>Dh 0.00</strong>
+			</div>
+			<div class="total-row">
+				<span>Total before tax:</span>
+				<strong id="total-before-tax">Dh 0.00</strong>
+			</div>
+			<div class="total-row">
+				<span>Tax total:</span>
+				<strong id="total-tax">Dh 0.00</strong>
+			</div>
+			<div class="total-row grand-total">
+				<span>Total amount:</span>
+				<strong id="total-amount">Dh 0.00</strong>
 			</div>
 		</div>
+	</div>
 
-		<!-- Status footer -->
-		<div class="status-footer">
-			<div class="status-left">
-				<div id="sync-status" class="status-info">Ready</div>
-				<div id="sync-log"></div>
-			</div>
-			<button id="btn-save" class="btn-save-sync">Save &amp; Sync SPA</button>
+	<!-- Status footer -->
+	<div class="status-footer">
+		<div class="status-left">
+			<div id="sync-status" class="status-info">Ready</div>
+			<div id="sync-log"></div>
 		</div>
-
-	</div><!-- /#editor-content -->
-
-	<!-- Empty state -->
-	<div id="empty-state">
-		<div class="empty-icon">📋</div>
-		<p>Select a Deal or Lead above to manage its products.</p>
 	</div>
 
 </div><!-- /.widget-container -->
 
-<!-- IMPORTANT: Load API debugger FIRST, before fee-sync-widget.js -->
-<script src="js/api-response-debugger.js"></script>
-
-<!-- Load the FIXED JavaScript file -->
-<script src="js/fee-sync-widget.js"></script>
-
-<!-- Load diagnostics -->
-<script src="js/fee-sync-widget-diagnostics.js"></script>
+<!-- Load the fixed JavaScript file -->
+<script src="js/fee-sync-widget-v6.js"></script>
 
 <script>
 BX24.init(function () {
 	BX24.fitWindow();
 
-	var selectEl   = document.getElementById('select-entity');
-	var badgeEl    = document.getElementById('entity-badge');
 	var loadingEl  = document.getElementById('loading-overlay');
 	var loadingTxt = document.getElementById('loading-text');
+	var entityTypeLabel = document.getElementById('entity-type-label');
+	var entityIdLabel   = document.getElementById('entity-id-label');
 
 	var info = BX24.placement.info();
 	var detectedType = null;
@@ -538,88 +454,32 @@ BX24.init(function () {
 		if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
 	}
 
-	/* ── helpers ── */
 	function showLoading(msg) {
 		loadingTxt.textContent = msg || 'Loading…';
 		loadingEl.classList.add('visible');
 	}
+
 	function hideLoading() {
 		loadingEl.classList.remove('visible');
 	}
-	function updateBadge(type, id) {
-		badgeEl.textContent = type.charAt(0).toUpperCase() + type.slice(1) + ' #' + id;
-		badgeEl.style.display = 'inline-block';
+
+	function updateEntityHeader(type, id) {
+		var typeLabel = type === 'deal' ? 'Deal' : 'Lead';
+		entityTypeLabel.textContent = typeLabel;
+		entityIdLabel.textContent = '#' + id;
 	}
 
-	/* ── load and show ── */
-	function selectAndLoad(entityVal) {
-		var parts      = entityVal.split('-');
-		var entityType = parts[0];
-		var entityId   = parseInt(parts[1]);
-
-		document.getElementById('editor-content').style.display = 'block';
-		document.getElementById('empty-state').style.display    = 'none';
-		updateBadge(entityType, entityId);
-		showLoading('Loading ' + entityType + ' #' + entityId + '…');
-
-		FeeSyncWidget.init(entityType, entityId, hideLoading);
+	// Auto-load if context detected
+	if (detectedType && detectedId) {
+		updateEntityHeader(detectedType, detectedId);
+		showLoading('Loading ' + detectedType + ' #' + detectedId + '…');
+		FeeSyncWidget.init(detectedType, detectedId, hideLoading);
+	} else {
+		// Fallback: show error
+		document.getElementById('sync-status').textContent = 'Error: Could not detect Deal/Lead context';
+		document.getElementById('sync-status').className = 'status-danger';
+		hideLoading();
 	}
-
-	/* ── load deals ── */
-	showLoading('Loading deals & leads…');
-	var loadedCount = 0;
-	function onListLoaded() {
-		loadedCount++;
-		if (loadedCount >= 2) {
-			hideLoading();
-			// Auto-select if context detected
-			if (detectedType && detectedId) {
-				var val = detectedType + '-' + detectedId;
-				selectEl.value = val;
-				if (selectEl.value === val) selectAndLoad(val);
-			}
-		}
-	}
-
-	BX24.callMethod('crm.deal.list', {
-		select: ['ID', 'TITLE'],
-		order:  { ID: 'DESC' }
-	}, function (res) {
-		var deals = res.error() ? [] : (res.data() || []);
-		deals.forEach(function (d) {
-			var opt = document.createElement('option');
-			opt.value       = 'deal-' + d.ID;
-			opt.textContent = 'Deal: ' + d.TITLE + ' (#' + d.ID + ')';
-			selectEl.appendChild(opt);
-		});
-		onListLoaded();
-	});
-
-	BX24.callMethod('crm.lead.list', {
-		select: ['ID', 'TITLE'],
-		order:  { ID: 'DESC' }
-	}, function (res) {
-		var leads = res.error() ? [] : (res.data() || []);
-		leads.forEach(function (l) {
-			var opt = document.createElement('option');
-			opt.value       = 'lead-' + l.ID;
-			opt.textContent = 'Lead: ' + l.TITLE + ' (#' + l.ID + ')';
-			selectEl.appendChild(opt);
-		});
-		onListLoaded();
-	});
-
-	/* ── dropdown change ── */
-	selectEl.addEventListener('change', function (e) {
-		var val = e.target.value;
-		if (!val) {
-			document.getElementById('editor-content').style.display = 'none';
-			document.getElementById('empty-state').style.display    = 'block';
-			badgeEl.style.display = 'none';
-			return;
-		}
-		selectAndLoad(val);
-	});
 });
 </script>
 </body>
