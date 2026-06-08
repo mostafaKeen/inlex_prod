@@ -341,7 +341,7 @@
 	<!-- Action Bar -->
 	<div class="action-bar">
 		<div class="left-actions">
-			<button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button>
+			<!-- <button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button> -->
 			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
 			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create Product</button>
 		</div>
