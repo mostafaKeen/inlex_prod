@@ -343,7 +343,7 @@
 		<div class="left-actions">
 			<button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button>
 			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
-			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create / Edit Product</button>
+			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create Product</button>
 		</div>
 		<button id="btn-save" class="btn-save-sync">💾 Save &amp; Sync</button>
 	</div>
@@ -1083,48 +1083,76 @@ var FeeSyncWidget = (function () {
 			btn.disabled = true; btn.textContent = 'Saving…';
 
 			if (isNew) {
-				if (!state.iblockId) {
-					alert('Cannot create product: catalog iblockId not loaded. Refresh and try again.');
-					btn.disabled = false; btn.textContent = 'Create Product';
-					return;
-				}
-				var addFields = { iblockId: state.iblockId, name: name, active: 'Y' };
-				if (toc) addFields['property111'] = toc;
-				if (pay) addFields['property109'] = pay;
-				if (ct)  addFields['property99']  = ct;
-				if (vt)  addFields['property101'] = vt;
-				if (vs)  addFields['property103'] = vs;
-
-				BX24.callMethod('catalog.product.add', { fields: addFields }, function (res) {
-					if (res.error()) {
-						alert('Error creating product: ' + res.error());
+				// Fetch iblockId on-demand if not already loaded (handles race/failure at init)
+				function doCreate(iblockId) {
+					if (!iblockId) {
+						alert('Could not load catalog ID from Bitrix24. Please check your app permissions and try again.');
 						btn.disabled = false; btn.textContent = 'Create Product';
 						return;
 					}
-					var newData = res.data();
-					var newId   = newData && (newData.element ? newData.element.id : newData);
-					log('Product created #' + newId);
+					var addFields = { iblockId: iblockId, name: name, active: 'Y' };
+					if (toc) addFields['property111'] = toc;
+					if (pay) addFields['property109'] = pay;
+					if (ct)  addFields['property99']  = ct;
+					if (vt)  addFields['property101'] = vt;
+					if (vs)  addFields['property103'] = vs;
 
-					if (newId && price > 0) {
-						BX24.callMethod('catalog.price.add', {
-							fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
-						}, function () {});
-					}
+					BX24.callMethod('catalog.product.add', { fields: addFields }, function (res) {
+						if (res.error()) {
+							alert('Error creating product: ' + res.error());
+							btn.disabled = false; btn.textContent = 'Create Product';
+							return;
+						}
+						var newData = res.data();
+						var newId   = newData && (newData.element ? newData.element.id : newData);
+						log('Product created #' + newId);
 
-					loadCatalogProducts(function () {
-						overlay.remove();
-						var row = {
-							id: state.nextRowId++, productId: String(newId), name: name,
-							price: price, qty: 1, taxRate: 0, taxIncluded: false,
-							typeOfCost: toc, payments: pay,
-							sort: state.rows.length * 10, spaId: null
-						};
-						state.rows.push(row);
-						var tbody4 = document.getElementById('product-rows-body');
-						if (tbody4) tbody4.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
-						recalcTotals();
+						if (newId && price > 0) {
+							BX24.callMethod('catalog.price.add', {
+								fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
+							}, function () {});
+						}
+
+						loadCatalogProducts(function () {
+							overlay.remove();
+							var row = {
+								id: state.nextRowId++, productId: String(newId), name: name,
+								price: price, qty: 1, taxRate: 0, taxIncluded: false,
+								typeOfCost: toc, payments: pay,
+								sort: state.rows.length * 10, spaId: null
+							};
+							state.rows.push(row);
+							var tbody4 = document.getElementById('product-rows-body');
+							if (tbody4) tbody4.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
+							recalcTotals();
+						});
 					});
-				});
+				}
+
+				if (state.iblockId) {
+					doCreate(state.iblockId);
+				} else {
+					// Retry fetching the iblockId now
+					log('iblockId not cached — fetching now…');
+					BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+						if (!res.error()) {
+							var catalogs = res.data() || [];
+							// Try to find CRM product catalog specifically
+							var crm = catalogs.find(function(c) {
+								return (c.iblockTypeId || c.IBLOCK_TYPE_ID || '').toString().indexOf('CRM') !== -1;
+							}) || catalogs[0] || null;
+							if (crm) {
+								state.iblockId = crm.id || crm.ID || null;
+								log('iblockId fetched on-demand: ' + state.iblockId);
+							}
+						} else {
+							log('catalog.catalog.list error: ' + res.error());
+						}
+						doCreate(state.iblockId);
+					});
+				}
+				// Early return — doCreate handles the async flow above
+				return;
 
 			} else {
 				BX24.callMethod('catalog.product.get', { id: productId }, function (getRes) {
@@ -1410,16 +1438,7 @@ var FeeSyncWidget = (function () {
 		rebind('btn-select-product', showProductPickerModal);
 		rebind('btn-save',           saveAndSync);
 		rebind('btn-edit-product',   function () {
-			// If a row is focused, offer to edit that product; else create new
-			var focused = document.activeElement;
-			var tr = focused ? focused.closest('tr[data-row-id]') : null;
-			var pid = null;
-			if (tr) {
-				var rowId = parseInt(tr.getAttribute('data-row-id'));
-				var row   = findRow(rowId);
-				if (row && row.productId) pid = row.productId;
-			}
-			showProductEditModal(pid);
+			showProductEditModal(null);
 		});
 	}
 
