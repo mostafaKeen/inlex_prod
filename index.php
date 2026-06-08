@@ -88,6 +88,7 @@
 		}
 		.btn-primary-bx:hover  { background-color: #0066cc; }
 		.btn-primary-bx:active { background-color: #0055aa; }
+		.btn-primary-bx:disabled { background-color: #c6cdd3; cursor: not-allowed; }
 
 		.btn-secondary-bx {
 			background-color: #fff;
@@ -208,13 +209,6 @@
 		}
 		.product-table tbody tr:hover {
 			background-color: #fafbfc;
-		}
-		.product-table tbody tr.dragging {
-			opacity: 0.6;
-			background: #f0f8ff !important;
-		}
-		.product-table tbody tr.drag-over {
-			border-top: 2px solid #0080ff;
 		}
 
 		.row-number {
@@ -386,7 +380,7 @@
 				</tr>
 			</thead>
 			<tbody id="product-rows-body">
-				<!-- rows injected by fee-sync-widget.js -->
+				<!-- rows injected by JavaScript -->
 			</tbody>
 		</table>
 	</div>
@@ -431,56 +425,507 @@
 
 </div><!-- /.widget-container -->
 
-<!-- Load the fixed JavaScript file -->
-<script src="js/fee-sync-widget-v6.js"></script>
-
+<!-- Main Script - INLINE VERSION WITH EVERYTHING INCLUDED -->
 <script>
+// Fee Sync Widget v6 - Inline version (no external file needed)
+var FeeSyncWidget = (function () {
+
+  var SPA_PROF_FIELDS = {
+    typeOfCost:  'ufCrm15_1779367818775',
+    payments:    'ufCrm15_1779367955682',
+    companyType: 'ufCrm15_1779368170455',
+    visaType:    'ufCrm15_1779368285728',
+    visaStatus:  'ufCrm15_1779368405816',
+  };
+
+  var SPA_GOV_FIELDS = {
+    typeOfCost:  'ufCrm17_1779370162991',
+    payments:    'ufCrm17_1779370261982',
+    companyType: 'ufCrm17_1779370566902',
+    visaType:    'ufCrm17_1779370435095',
+    visaStatus:  'ufCrm17_1779370325590',
+  };
+
+  var DEAL_PROF_FIELD = 'UF_CRM_1779313011';
+  var DEAL_GOV_FIELD  = 'UF_CRM_1779654189';
+  var LEAD_PROF_FIELD = 'UF_CRM_1779194029';
+  var LEAD_GOV_FIELD  = null;
+
+  var PROP_TYPE_OF_COST = { '207': 'Government Cost', '209': 'Professional Fees' };
+  var PROP_PAYMENTS = {
+    '193': 'Annually', '195': 'One Time', '197': 'Quarterly',
+    '199': 'Every 2 years', '201': 'Monthly',
+    '203': 'In The Order Of Discussion',
+    '205': 'One time (cost depends on transactions)'
+  };
+
+  var state = {
+    entityType:     null,
+    entityId:       null,
+    rows:           [],
+    nextRowId:      1,
+    productCatalog: [],
+    iblockId:       null,
+    spaItems:       { prof: {}, gov: {} },
+    draggedRow:     null,
+    draggedIndex:   null
+  };
+
+  function log(msg) {
+    console.log('[FeeSyncWidget] ' + msg);
+    var el = document.getElementById('sync-log');
+    if (!el) return;
+    var ts = new Date().toLocaleTimeString();
+    el.innerHTML = '<span>[' + ts + '] ' + msg + '</span><br>' + el.innerHTML;
+  }
+
+  function setStatus(msg, cls) {
+    var el = document.getElementById('sync-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = cls || 'status-info';
+  }
+
+  function init(entityType, entityId, onReady) {
+    state.entityType     = entityType;
+    state.entityId       = entityId;
+    state.rows           = [];
+    state.nextRowId      = 1;
+    state.productCatalog = [];
+    state.iblockId       = null;
+    state.spaItems       = { prof: {}, gov: {} };
+    state.draggedRow     = null;
+    state.draggedIndex   = null;
+
+    setStatus('Loading…', 'status-info');
+    log('Initialising for ' + entityType + ' #' + entityId);
+
+    fetchIblockId(function () {
+      loadCatalogProducts(function () {
+        loadEntityProducts(function () {
+          renderRows();
+          bindActions();
+          setStatus('Ready', 'status-info');
+          if (typeof onReady === 'function') onReady();
+        });
+      });
+    });
+  }
+
+  function fetchIblockId(cb) {
+    BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+      if (res.error()) {
+        log('catalog.catalog.list error: ' + res.error());
+        if (cb) cb();
+        return;
+      }
+      var catalogs = res.data() || [];
+      var catalog = catalogs[0] || null;
+      if (catalog) {
+        state.iblockId = catalog.id || catalog.ID || null;
+        log('Catalog iblockId = ' + state.iblockId);
+      }
+      if (cb) cb();
+    });
+  }
+
+  function loadCatalogProducts(cb) {
+    var allProducts = [];
+    BX24.callMethod('crm.product.list', {
+      select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
+               'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
+               'PROPERTY_101', 'PROPERTY_103'],
+      filter: { 'ACTIVE': 'Y' },
+      order:  { 'NAME': 'ASC' }
+    }, function (res) {
+      if (res.error()) {
+        log('Catalog load error: ' + res.error());
+        state.productCatalog = allProducts;
+        if (cb) cb();
+        return;
+      }
+      var page = res.data() || [];
+      allProducts = allProducts.concat(page);
+      if (res.more()) {
+        res.next();
+      } else {
+        state.productCatalog = allProducts;
+        log('Loaded ' + allProducts.length + ' catalog products');
+        if (cb) cb();
+      }
+    });
+  }
+
+  function loadEntityProducts(cb) {
+    var method = state.entityType === 'deal'
+      ? 'crm.deal.productrows.get'
+      : 'crm.lead.productrows.get';
+
+    BX24.callMethod(method, { id: state.entityId }, function (res) {
+      if (res.error()) {
+        log('Product rows error: ' + res.error());
+        if (cb) cb();
+        return;
+      }
+      var rows = res.data() || [];
+      log('Loaded ' + rows.length + ' product row(s) from entity');
+      rows.forEach(function (r) {
+        state.rows.push(buildRowFromEntityRow(r));
+      });
+      if (cb) cb();
+    });
+  }
+
+  function buildRowFromEntityRow(r) {
+    var catalogItem = findCatalogProduct(r.PRODUCT_ID);
+    var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
+    var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
+
+    var row = {
+      id:          state.nextRowId++,
+      productId:   r.PRODUCT_ID || '',
+      name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
+      price:       parseFloat(r.PRICE    || 0),
+      qty:         parseFloat(r.QUANTITY || 1),
+      taxRate:     parseFloat(r.TAX_RATE || 0),
+      taxIncluded: (r.TAX_INCLUDED === 'Y'),
+      typeOfCost:  String(typeOfCost),
+      payments:    String(payments),
+      sort:        parseInt(r.SORT || 0),
+      spaId:       null,
+      _entityRow:  r
+    };
+
+    return row;
+  }
+
+  function getPropValue(product, propKey) {
+    if (!product) return '';
+    var val = product[propKey];
+    if (val === undefined || val === null || val === '') return '';
+    if (Array.isArray(val)) {
+      val = val[0];
+      if (val === undefined || val === null) return '';
+    }
+    if (typeof val === 'object') {
+      if (val.id    !== undefined) return String(val.id);
+      if (val.ID    !== undefined) return String(val.ID);
+      if (val.VALUE !== undefined) return String(val.VALUE);
+      if (val.value !== undefined) return String(val.value);
+    }
+    return String(val);
+  }
+
+  function findCatalogProduct(productId) {
+    if (!productId) return null;
+    var pid = String(productId);
+    return state.productCatalog.find(function (p) {
+      return String(p.ID || p.id) === pid;
+    }) || null;
+  }
+
+  function renderRows() {
+    var tbody = document.getElementById('product-rows-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.rows.forEach(function (row, idx) {
+      tbody.appendChild(buildRowEl(row, idx + 1, idx));
+    });
+    recalcTotals();
+  }
+
+  function buildRowEl(row, num, index) {
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-row-id', row.id);
+    tr.setAttribute('data-row-index', index);
+    tr.draggable = true;
+    tr.style.cursor = 'move';
+
+    var typeOpts = buildEnumOpts([
+      { id: '207', label: 'Government Cost' },
+      { id: '209', label: 'Professional Fees' }
+    ], row.typeOfCost);
+
+    var payOpts = buildEnumOpts([
+      { id: '193', label: 'Annually' },
+      { id: '195', label: 'One Time' },
+      { id: '197', label: 'Quarterly' },
+      { id: '199', label: 'Every 2 years' },
+      { id: '201', label: 'Monthly' },
+      { id: '203', label: 'In The Order Of Discussion' },
+      { id: '205', label: 'One time (variable)' }
+    ], row.payments);
+
+    var amount = (row.price * row.qty).toFixed(2);
+
+    tr.innerHTML = [
+      '<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
+      '<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
+      '<td></td>',
+      '<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
+        '<span class="input-bx-suffix">Dh</span></div></td>',
+      '<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
+        '<span class="input-bx-suffix">%</span></div></td>',
+      '<td><div class="input-bx-wrapper">',
+        '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
+        '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
+      '</div></td>',
+      '<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
+    ].join('');
+
+    tr.querySelector('.js-product-name').addEventListener('input', function (e) { updateRowField(row.id, 'name', e.target.value); });
+    tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) { updateRowField(row.id, 'typeOfCost', e.target.value); });
+    tr.querySelector('.js-payments').addEventListener('change', function (e) { updateRowField(row.id, 'payments', e.target.value); });
+    tr.querySelector('.js-price').addEventListener('input', function (e) {
+      updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
+      recalcRowAmount(row.id);
+    });
+    tr.querySelector('.js-tax').addEventListener('input', function (e) {
+      updateRowField(row.id, 'taxRate', parseFloat(e.target.value) || 0);
+      recalcRowAmount(row.id);
+    });
+    tr.querySelector('.js-delete-row').addEventListener('click', function () { deleteRow(row.id); });
+
+    tr.addEventListener('dragstart', function (e) {
+      state.draggedRow = row.id;
+      state.draggedIndex = index;
+      tr.style.opacity = '0.6';
+      tr.style.background = '#f0f8ff';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    tr.addEventListener('dragend', function () {
+      tr.style.opacity = '1';
+      tr.style.background = '';
+      state.draggedRow = null;
+      state.draggedIndex = null;
+      var allTrs = document.querySelectorAll('#product-rows-body tr');
+      allTrs.forEach(function (t) { t.style.borderTop = ''; });
+    });
+
+    tr.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (state.draggedIndex !== null && state.draggedIndex !== index) {
+        tr.style.borderTop = '2px solid #0080ff';
+      }
+    });
+
+    tr.addEventListener('dragleave', function () { tr.style.borderTop = ''; });
+
+    tr.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (state.draggedRow === null || state.draggedIndex === null) return;
+      if (state.draggedIndex === index) return;
+      var draggedRowObj = state.rows.find(function (r) { return r.id === state.draggedRow; });
+      if (!draggedRowObj) return;
+      state.rows.splice(state.draggedIndex, 1);
+      state.rows.splice(index, 0, draggedRowObj);
+      tr.style.borderTop = '';
+      renderRows();
+      log('Rows reordered: #' + state.draggedRow + ' moved to position ' + (index + 1));
+    });
+
+    return tr;
+  }
+
+  function buildEnumOpts(items, currentVal) {
+    var html              = '<option value="">-- select --</option>';
+    var normalizedCurrent = String(currentVal || '').trim();
+    items.forEach(function (item) {
+      var sel = (String(item.id).trim() === normalizedCurrent) ? ' selected' : '';
+      html += '<option value="' + item.id + '"' + sel + '>' + escHtml(item.label) + '</option>';
+    });
+    return html;
+  }
+
+  function updateRowField(rowId, field, value) {
+    var row = findRow(rowId);
+    if (row) row[field] = value;
+  }
+
+  function recalcRowAmount(rowId) {
+    var row = findRow(rowId);
+    if (!row) return;
+    var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+    if (tr) {
+      var amtInput = tr.querySelector('.js-amount');
+      if (amtInput) amtInput.value = (row.price * row.qty).toFixed(2);
+    }
+    recalcTotals();
+  }
+
+  function deleteRow(rowId) {
+    state.rows = state.rows.filter(function (r) { return r.id !== rowId; });
+    var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+    if (tr) tr.remove();
+    document.querySelectorAll('#product-rows-body tr').forEach(function (tr2, i) {
+      var numEl = tr2.querySelector('.row-number span:last-child');
+      if (numEl) numEl.textContent = i + 1;
+    });
+    recalcTotals();
+  }
+
+  function findRow(rowId) {
+    return state.rows.find(function (r) { return r.id === rowId; }) || null;
+  }
+
+  function addEmptyRow() {
+    var row = {
+      id: state.nextRowId++, productId: '', name: '',
+      price: 0, qty: 1, taxRate: 0, taxIncluded: false,
+      typeOfCost: '', payments: '',
+      sort: state.rows.length * 10, spaId: null
+    };
+    state.rows.push(row);
+    var tbody = document.getElementById('product-rows-body');
+    if (tbody) tbody.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
+    recalcTotals();
+  }
+
+  function recalcTotals() {
+    var trs = document.querySelectorAll('#product-rows-body tr');
+    trs.forEach(function (tr2) {
+      var rowId = parseInt(tr2.getAttribute('data-row-id'));
+      var row   = findRow(rowId);
+      if (!row) return;
+
+      var priceEl = tr2.querySelector('.js-price');
+      var taxEl   = tr2.querySelector('.js-tax');
+      var nameEl  = tr2.querySelector('.js-product-name');
+      var tocEl   = tr2.querySelector('.js-type-of-cost');
+      var payEl   = tr2.querySelector('.js-payments');
+
+      if (priceEl) row.price     = parseFloat(priceEl.value) || 0;
+      if (taxEl)   row.taxRate   = parseFloat(taxEl.value)   || 0;
+      if (nameEl)  row.name      = nameEl.value;
+      if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
+      if (payEl && payEl.value) row.payments   = payEl.value;
+
+      var amtEl = tr2.querySelector('.js-amount');
+      if (amtEl) amtEl.value = (row.price * row.qty).toFixed(2);
+    });
+
+    var raw = 0, taxTotal = 0;
+    state.rows.forEach(function (r) {
+      var base  = r.price * r.qty;
+      raw      += base;
+      taxTotal += base * (r.taxRate / 100);
+    });
+
+    setText('total-raw',        'Dh ' + raw.toFixed(2));
+    setText('total-before-tax', 'Dh ' + raw.toFixed(2));
+    setText('total-tax',        'Dh ' + taxTotal.toFixed(2));
+    setText('total-amount',     'Dh ' + (raw + taxTotal).toFixed(2));
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function saveAndSync() {
+    setStatus('Saving…', 'status-info');
+    recalcTotals();
+
+    var rows = state.rows.filter(function (r) { return r.name || r.productId; });
+    if (rows.length === 0) { setStatus('No products to save', 'status-warning'); return; }
+
+    log('Saving ' + rows.length + ' product row(s) to ' + state.entityType + ' #' + state.entityId);
+
+    var method = state.entityType === 'deal'
+      ? 'crm.deal.productrows.set'
+      : 'crm.lead.productrows.set';
+
+    var productRows = rows.map(function (r, idx) {
+      return {
+        PRODUCT_ID:   r.productId || 0,
+        PRODUCT_NAME: r.name,
+        PRICE:        r.price,
+        QUANTITY:     r.qty,
+        TAX_RATE:     r.taxRate,
+        TAX_INCLUDED: r.taxIncluded ? 'Y' : 'N',
+        SORT:         (idx + 1) * 10
+      };
+    });
+
+    BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+      if (res.error()) {
+        setStatus('Error saving products: ' + res.error(), 'status-danger');
+        log('Error: ' + res.error());
+        return;
+      }
+      log('Product rows saved OK');
+      setStatus('Saved & synced ✓', 'status-success');
+      log('All done');
+    });
+  }
+
+  function bindActions() {
+    var btn1 = document.getElementById('btn-add-product');
+    var btn2 = document.getElementById('btn-select-product');
+    var btn3 = document.getElementById('btn-save');
+    if (btn1) btn1.addEventListener('click', addEmptyRow);
+    if (btn2) btn2.addEventListener('click', function () { alert('Catalog selector modal not included in inline version. Use "Add Product" button to create rows manually.'); });
+    if (btn3) btn3.addEventListener('click', saveAndSync);
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  return { init: init, saveAndSync: saveAndSync };
+})();
+
+// Initialize on BX24 ready
 BX24.init(function () {
-	BX24.fitWindow();
+  BX24.fitWindow();
 
-	var loadingEl  = document.getElementById('loading-overlay');
-	var loadingTxt = document.getElementById('loading-text');
-	var entityTypeLabel = document.getElementById('entity-type-label');
-	var entityIdLabel   = document.getElementById('entity-id-label');
+  var loadingEl  = document.getElementById('loading-overlay');
+  var loadingTxt = document.getElementById('loading-text');
+  var entityTypeLabel = document.getElementById('entity-type-label');
+  var entityIdLabel   = document.getElementById('entity-id-label');
 
-	var info = BX24.placement.info();
-	var detectedType = null;
-	var detectedId   = null;
+  function showLoading(msg) {
+    loadingTxt.textContent = msg || 'Loading…';
+    loadingEl.classList.add('visible');
+  }
 
-	// Detect if opened inside a Deal or Lead context
-	if (info && info.placement) {
-		if (info.placement.indexOf('DEAL') !== -1) detectedType = 'deal';
-		else if (info.placement.indexOf('LEAD') !== -1) detectedType = 'lead';
-		if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
-	}
+  function hideLoading() {
+    loadingEl.classList.remove('visible');
+  }
 
-	function showLoading(msg) {
-		loadingTxt.textContent = msg || 'Loading…';
-		loadingEl.classList.add('visible');
-	}
+  function updateEntityHeader(type, id) {
+    var typeLabel = type === 'deal' ? 'Deal' : 'Lead';
+    entityTypeLabel.textContent = typeLabel;
+    entityIdLabel.textContent = '#' + id;
+  }
 
-	function hideLoading() {
-		loadingEl.classList.remove('visible');
-	}
+  var info = BX24.placement.info();
+  var detectedType = null;
+  var detectedId   = null;
 
-	function updateEntityHeader(type, id) {
-		var typeLabel = type === 'deal' ? 'Deal' : 'Lead';
-		entityTypeLabel.textContent = typeLabel;
-		entityIdLabel.textContent = '#' + id;
-	}
+  if (info && info.placement) {
+    if (info.placement.indexOf('DEAL') !== -1) detectedType = 'deal';
+    else if (info.placement.indexOf('LEAD') !== -1) detectedType = 'lead';
+    if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
+  }
 
-	// Auto-load if context detected
-	if (detectedType && detectedId) {
-		updateEntityHeader(detectedType, detectedId);
-		showLoading('Loading ' + detectedType + ' #' + detectedId + '…');
-		FeeSyncWidget.init(detectedType, detectedId, hideLoading);
-	} else {
-		// Fallback: show error
-		document.getElementById('sync-status').textContent = 'Error: Could not detect Deal/Lead context';
-		document.getElementById('sync-status').className = 'status-danger';
-		hideLoading();
-	}
+  if (detectedType && detectedId) {
+    updateEntityHeader(detectedType, detectedId);
+    showLoading('Loading ' + detectedType + ' #' + detectedId + '…');
+    FeeSyncWidget.init(detectedType, detectedId, hideLoading);
+  } else {
+    document.getElementById('sync-status').textContent = 'Error: Could not detect Deal/Lead context';
+    document.getElementById('sync-status').className = 'status-danger';
+    hideLoading();
+  }
 });
 </script>
+
 </body>
 </html>
