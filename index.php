@@ -488,15 +488,39 @@ var FeeSyncWidget = (function () {
 	}
 
 	// ─── Fetch iblock ID ──────────────────────────────────────────────────────
+	// catalog.catalog.list returns { catalogs: [...] } per the official docs
+	function extractCatalogs(data) {
+		if (!data) return [];
+		if (Array.isArray(data)) return data;
+		if (data.catalogs && Array.isArray(data.catalogs)) return data.catalogs;
+		return [];
+	}
+
+	function pickIblockId(catalogs) {
+		if (!catalogs || catalogs.length === 0) return null;
+		// Main product catalog has no productIblockId (it's not an offers catalog)
+		var main = null;
+		for (var i = 0; i < catalogs.length; i++) {
+			var c = catalogs[i];
+			if (!c.productIblockId || c.productIblockId === 0) { main = c; break; }
+		}
+		if (!main) main = catalogs[0];
+		return main ? (main.iblockId || main.id || main.ID || null) : null;
+	}
+
 	function fetchIblockId(cb) {
-		BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+		BX24.callMethod('catalog.catalog.list', { select: ['id', 'iblockId', 'iblockTypeId', 'productIblockId'] }, function (res) {
 			if (!res.error()) {
-				var catalogs = res.data() || [];
-				var catalog = catalogs[0] || null;
-				if (catalog) {
-					state.iblockId = catalog.id || catalog.ID || null;
-					log('iblockId = ' + state.iblockId);
+				var catalogs = extractCatalogs(res.data());
+				var id = pickIblockId(catalogs);
+				if (id) {
+					state.iblockId = id;
+					log('iblockId = ' + state.iblockId + ' (' + catalogs.length + ' catalog(s) found)');
+				} else {
+					log('catalog.catalog.list returned no usable catalog. raw=' + JSON.stringify(res.data()));
 				}
+			} else {
+				log('catalog.catalog.list error: ' + res.error());
 			}
 			if (cb) cb();
 		});
@@ -1132,18 +1156,17 @@ var FeeSyncWidget = (function () {
 				if (state.iblockId) {
 					doCreate(state.iblockId);
 				} else {
-					// Retry fetching the iblockId now
-					log('iblockId not cached — fetching now…');
-					BX24.callMethod('catalog.catalog.list', { select: ['ID', 'IBLOCK_TYPE_ID'] }, function (res) {
+					// iblockId not cached yet — re-fetch using the same helpers
+					log('iblockId not cached — fetching on-demand…');
+					BX24.callMethod('catalog.catalog.list', { select: ['id', 'iblockId', 'iblockTypeId', 'productIblockId'] }, function (res) {
 						if (!res.error()) {
-							var catalogs = res.data() || [];
-							// Try to find CRM product catalog specifically
-							var crm = catalogs.find(function(c) {
-								return (c.iblockTypeId || c.IBLOCK_TYPE_ID || '').toString().indexOf('CRM') !== -1;
-							}) || catalogs[0] || null;
-							if (crm) {
-								state.iblockId = crm.id || crm.ID || null;
+							var catalogs = extractCatalogs(res.data());
+							var id = pickIblockId(catalogs);
+							if (id) {
+								state.iblockId = id;
 								log('iblockId fetched on-demand: ' + state.iblockId);
+							} else {
+								log('on-demand fetch: no usable catalog. raw=' + JSON.stringify(res.data()));
 							}
 						} else {
 							log('catalog.catalog.list error: ' + res.error());
