@@ -341,7 +341,7 @@
 	<!-- Action Bar -->
 	<div class="action-bar">
 		<div class="left-actions">
-			<!-- <button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button> -->
+			<button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button>
 			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
 			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create Product</button>
 		</div>
@@ -385,7 +385,6 @@
 	<div class="status-footer">
 		<div class="status-left">
 			<div id="sync-status" class="status-info">✓ Ready to save</div>
-			<div id="sync-log"></div>
 		</div>
 	</div>
 
@@ -440,10 +439,6 @@ var FeeSyncWidget = (function () {
 	// ─── Logging ──────────────────────────────────────────────────────────────
 	function log(msg) {
 		console.log('[FeeSyncWidget] ' + msg);
-		var el = document.getElementById('sync-log');
-		if (!el) return;
-		var ts = new Date().toLocaleTimeString();
-		el.innerHTML = '<span>[' + ts + '] ' + msg + '</span><br>' + el.innerHTML;
 	}
 
 	function setStatus(msg, cls) {
