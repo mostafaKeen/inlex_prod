@@ -30,7 +30,7 @@
 			box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 			padding: 20px;
 			border: 1px solid #e2e5ec;
-			max-width: 1300px;
+			max-width: 1400px;
 			margin: 0 auto;
 			position: relative;
 		}
@@ -187,7 +187,7 @@
 			width: 100%;
 			border-collapse: collapse;
 			text-align: left;
-			min-width: 900px;
+			min-width: 1000px;
 		}
 
 		.product-table thead tr { background-color: #f7f9fa; }
@@ -217,6 +217,18 @@
 		.drag-handle { cursor: grab; color: #d0d4da; font-size: 16px; user-select: none; transition: color 0.2s; }
 		tr:hover .drag-handle { color: #0080ff; }
 		.drag-handle:active { cursor: grabbing; }
+
+		/* Option badge styling */
+		.option-badge {
+			display: inline-block;
+			padding: 2px 7px;
+			border-radius: 10px;
+			font-size: 11px;
+			font-weight: 700;
+			white-space: nowrap;
+		}
+		.option-badge-1 { background: #e5f2ff; color: #0066cc; }
+		.option-badge-2 { background: #fff3e0; color: #e65100; }
 
 		.totals-container { display: flex; justify-content: flex-end; margin-top: 24px; }
 
@@ -260,14 +272,6 @@
 			padding: 6px 12px;
 			border-radius: 4px;
 			font-size: 12px;
-		}
-
-		#sync-log {
-			font-size: 11px;
-			color: #828b95;
-			max-height: 72px;
-			overflow-y: auto;
-			line-height: 1.5;
 		}
 
 		.status-info    { color: #0066cc; background: #e5f2ff; }
@@ -341,7 +345,6 @@
 	<!-- Action Bar -->
 	<div class="action-bar">
 		<div class="left-actions">
-			<!-- <button id="btn-add-product"    class="btn-primary-bx">+ Add Product</button> -->
 			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
 			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create Product</button>
 		</div>
@@ -356,10 +359,10 @@
 				<tr>
 					<th style="width:50px;">#</th>
 					<th>Product Name</th>
-					<th style="width:44px;"></th>
+					<th style="width:100px;">Option</th>
 					<th style="width:170px;">Type of Cost</th>
 					<th style="width:140px;">Price</th>
-					<th style="width:140px;">Payments</th>
+					<th style="width:160px;">Payments</th>
 					<th style="width:110px;">Tax %</th>
 					<th style="width:140px;">Amount</th>
 					<th style="width:36px;"></th>
@@ -394,6 +397,10 @@
 var FeeSyncWidget = (function () {
 
 	// ─── SPA Field Maps ───────────────────────────────────────────────────────
+	// Type 1058 = Professional Fees Option 1
+	// Type 1062 = Government Fees  Option 1
+	// Type 1070 = Professional Fees Option 2
+	// Type 1074 = Government Fees  Option 2
 	var SPA_PROF_FIELDS = {
 		typeOfCost:  'ufCrm15_1779367818775',
 		payments:    'ufCrm15_1779367955682',
@@ -410,10 +417,25 @@ var FeeSyncWidget = (function () {
 		visaStatus:  'ufCrm17_1779370325590',
 	};
 
-	var DEAL_PROF_FIELD = 'UF_CRM_1779313011';
-	var DEAL_GOV_FIELD  = 'UF_CRM_1779654189';
-	var LEAD_PROF_FIELD = 'UF_CRM_1779194029';
-	var LEAD_GOV_FIELD  = null;
+	// Link fields per entity type and SPA type
+	var DEAL_LINK_FIELDS = {
+		1058: 'UF_CRM_1779313011',
+		1062: 'UF_CRM_1779654189',
+		1070: 'UF_CRM_6A29D1F63E22F',
+		1074: 'UF_CRM_6A29D1F65158B'
+	};
+	var LEAD_LINK_FIELDS = {
+		1058: 'UF_CRM_1780911226',
+		1062: 'UF_CRM_1780912561',
+		1070: 'UF_CRM_1781125540',
+		1074: 'UF_CRM_1781125572'
+	};
+
+	// Status field per entity type (set to "Done" after sync)
+	var STATUS_FIELDS = {
+		deal: 'UF_CRM_6A29D1F62D40F',
+		lead: 'UF_CRM_1781076094241'
+	};
 
 	var PROP_TYPE_OF_COST = { '207': 'Government Cost', '209': 'Professional Fees' };
 	var PROP_PAYMENTS = {
@@ -422,6 +444,7 @@ var FeeSyncWidget = (function () {
 		'203': 'In The Order Of Discussion',
 		'205': 'One time (cost depends on transactions)'
 	};
+	var PROP_OPTIONS = { '235': 'Option 1', '237': 'Option 2' };
 
 	// ─── State ────────────────────────────────────────────────────────────────
 	var state = {
@@ -431,7 +454,6 @@ var FeeSyncWidget = (function () {
 		nextRowId:      1,
 		productCatalog: [],
 		iblockId:       null,
-		spaItems:       { prof: {}, gov: {} },
 		draggedRow:     null,
 		draggedIndex:   null
 	};
@@ -453,6 +475,23 @@ var FeeSyncWidget = (function () {
 		if (el) el.textContent = txt;
 	}
 
+	// ─── Resolve SPA entity type ID from typeOfCost + option ─────────────────
+	function resolveSpaEntityTypeId(typeOfCost, option) {
+		var isGov  = (typeOfCost === '207');
+		var isProf = (typeOfCost === '209');
+		if (!isGov && !isProf) return null;
+		var isOption2 = (option === '237' || String(option).toLowerCase() === 'option 2');
+		if (isGov)  return isOption2 ? 1074 : 1062;
+		if (isProf) return isOption2 ? 1070 : 1058;
+		return null;
+	}
+
+	// ─── Get link field for current entity type + SPA type ───────────────────
+	function getLinkField(spaTypeId) {
+		var map = state.entityType === 'deal' ? DEAL_LINK_FIELDS : LEAD_LINK_FIELDS;
+		return map[spaTypeId] || null;
+	}
+
 	// ─── Init ─────────────────────────────────────────────────────────────────
 	function init(entityType, entityId, onReady) {
 		state.entityType     = entityType;
@@ -461,7 +500,6 @@ var FeeSyncWidget = (function () {
 		state.nextRowId      = 1;
 		state.productCatalog = [];
 		state.iblockId       = null;
-		state.spaItems       = { prof: {}, gov: {} };
 		state.draggedRow     = null;
 		state.draggedIndex   = null;
 
@@ -483,7 +521,6 @@ var FeeSyncWidget = (function () {
 	}
 
 	// ─── Fetch iblock ID ──────────────────────────────────────────────────────
-	// catalog.catalog.list returns { catalogs: [...] } per the official docs
 	function extractCatalogs(data) {
 		if (!data) return [];
 		if (Array.isArray(data)) return data;
@@ -493,7 +530,6 @@ var FeeSyncWidget = (function () {
 
 	function pickIblockId(catalogs) {
 		if (!catalogs || catalogs.length === 0) return null;
-		// Main product catalog has no productIblockId (it's not an offers catalog)
 		var main = null;
 		for (var i = 0; i < catalogs.length; i++) {
 			var c = catalogs[i];
@@ -510,9 +546,9 @@ var FeeSyncWidget = (function () {
 				var id = pickIblockId(catalogs);
 				if (id) {
 					state.iblockId = id;
-					log('iblockId = ' + state.iblockId + ' (' + catalogs.length + ' catalog(s) found)');
+					log('iblockId = ' + state.iblockId);
 				} else {
-					log('catalog.catalog.list returned no usable catalog. raw=' + JSON.stringify(res.data()));
+					log('catalog.catalog.list returned no usable catalog');
 				}
 			} else {
 				log('catalog.catalog.list error: ' + res.error());
@@ -521,13 +557,13 @@ var FeeSyncWidget = (function () {
 		});
 	}
 
-	// ─── Load catalog products ─────────────────────────────────────────────
+	// ─── Load catalog products ────────────────────────────────────────────────
 	function loadCatalogProducts(cb) {
 		var allProducts = [];
 		BX24.callMethod('crm.product.list', {
 			select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
 			         'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-			         'PROPERTY_101', 'PROPERTY_103'],
+			         'PROPERTY_101', 'PROPERTY_103', 'PROPERTY_119'],
 			filter: { 'ACTIVE': 'Y' },
 			order:  { 'NAME': 'ASC' }
 		}, function (res) {
@@ -574,8 +610,9 @@ var FeeSyncWidget = (function () {
 		var catalogItem = findCatalogProduct(r.PRODUCT_ID);
 		var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
 		var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
+		var option      = getPropValue(catalogItem, 'PROPERTY_119') || '';
 
-		return {
+		var row = {
 			id:          state.nextRowId++,
 			productId:   r.PRODUCT_ID || '',
 			name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
@@ -585,10 +622,14 @@ var FeeSyncWidget = (function () {
 			taxIncluded: (r.TAX_INCLUDED === 'Y'),
 			typeOfCost:  String(typeOfCost),
 			payments:    String(payments),
+			option:      String(option),
 			sort:        parseInt(r.SORT || 0),
 			spaId:       null,
 			_entityRow:  r
 		};
+
+		log('Row #' + row.id + ': name=' + row.name + ', typeOfCost=' + row.typeOfCost + ', option=' + row.option);
+		return row;
 	}
 
 	function getPropValue(product, propKey) {
@@ -638,6 +679,11 @@ var FeeSyncWidget = (function () {
 			{ id: '209', label: 'Professional Fees' }
 		], row.typeOfCost);
 
+		var optOpts = buildEnumOpts([
+			{ id: '235', label: 'Option 1' },
+			{ id: '237', label: 'Option 2' }
+		], row.option);
+
 		var payOpts = buildEnumOpts([
 			{ id: '193', label: 'Annually' },
 			{ id: '195', label: 'One Time' },
@@ -648,12 +694,12 @@ var FeeSyncWidget = (function () {
 			{ id: '205', label: 'One time (variable)' }
 		], row.payments);
 
-		var amount = (row.price * row.qty).toFixed(2);
+		var amount = (row.price * row.qty * (1 + row.taxRate / 100)).toFixed(2);
 
 		tr.innerHTML = [
 			'<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
 			'<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
-			'<td></td>',
+			'<td><select class="input-bx select-bx js-option">' + optOpts + '</select></td>',
 			'<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
 			'<td><div class="input-bx-wrapper">',
 			  '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
@@ -669,9 +715,13 @@ var FeeSyncWidget = (function () {
 			'<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
 		].join('');
 
-		// ── Live sync: read DOM → state so values are never lost ──
+		// Live event bindings
 		tr.querySelector('.js-product-name').addEventListener('input', function (e) {
 			updateRowField(row.id, 'name', e.target.value);
+		});
+		tr.querySelector('.js-option').addEventListener('change', function (e) {
+			updateRowField(row.id, 'option', e.target.value);
+			log('Row ' + row.id + ' option → ' + e.target.value);
 		});
 		tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) {
 			updateRowField(row.id, 'typeOfCost', e.target.value);
@@ -691,7 +741,7 @@ var FeeSyncWidget = (function () {
 		});
 		tr.querySelector('.js-delete-row').addEventListener('click', function () { deleteRow(row.id); });
 
-		// ── Drag & drop ───────────────────────────────────────────
+		// Drag & drop
 		tr.addEventListener('dragstart', function (e) {
 			state.draggedRow   = row.id;
 			state.draggedIndex = index;
@@ -752,7 +802,7 @@ var FeeSyncWidget = (function () {
 		var tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
 		if (tr) {
 			var amtInput = tr.querySelector('.js-amount');
-			if (amtInput) amtInput.value = (row.price * row.qty).toFixed(2);
+			if (amtInput) amtInput.value = (row.price * row.qty * (1 + row.taxRate / 100)).toFixed(2);
 		}
 		recalcTotals();
 	}
@@ -776,7 +826,7 @@ var FeeSyncWidget = (function () {
 		var row = {
 			id: state.nextRowId++, productId: '', name: '',
 			price: 0, qty: 1, taxRate: 0, taxIncluded: false,
-			typeOfCost: '', payments: '',
+			typeOfCost: '', payments: '', option: '',
 			sort: state.rows.length * 10, spaId: null
 		};
 		state.rows.push(row);
@@ -786,8 +836,6 @@ var FeeSyncWidget = (function () {
 	}
 
 	// ─── Totals ───────────────────────────────────────────────────────────────
-	// NOTE: recalcTotals only reads DOM → state; it does NOT clear typeOfCost/payments
-	// when the selects are on "-- select --" (empty), preserving values set at load time.
 	function recalcTotals() {
 		var trs = document.querySelectorAll('#product-rows-body tr');
 		trs.forEach(function (tr2) {
@@ -800,6 +848,7 @@ var FeeSyncWidget = (function () {
 			var nameEl  = tr2.querySelector('.js-product-name');
 			var tocEl   = tr2.querySelector('.js-type-of-cost');
 			var payEl   = tr2.querySelector('.js-payments');
+			var optEl   = tr2.querySelector('.js-option');
 
 			if (priceEl) row.price   = parseFloat(priceEl.value) || 0;
 			if (taxEl)   row.taxRate = parseFloat(taxEl.value)   || 0;
@@ -807,9 +856,10 @@ var FeeSyncWidget = (function () {
 			// Only overwrite when user has actually chosen a value
 			if (tocEl && tocEl.value !== '') row.typeOfCost = tocEl.value;
 			if (payEl && payEl.value !== '') row.payments   = payEl.value;
+			if (optEl && optEl.value !== '') row.option     = optEl.value;
 
 			var amtEl = tr2.querySelector('.js-amount');
-			if (amtEl) amtEl.value = (row.price * row.qty).toFixed(2);
+			if (amtEl) amtEl.value = (row.price * row.qty * (1 + row.taxRate / 100)).toFixed(2);
 		});
 
 		var raw = 0, taxTotal = 0;
@@ -840,7 +890,7 @@ var FeeSyncWidget = (function () {
 		overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
 		var modal = document.createElement('div');
-		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;';
+		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:760px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;';
 
 		modal.innerHTML = [
 			'<div style="display:flex;justify-content:space-between;align-items:center">',
@@ -854,6 +904,11 @@ var FeeSyncWidget = (function () {
 					'<option value="207">Government Cost</option>',
 					'<option value="209">Professional Fees</option>',
 				'</select>',
+				'<select id="picker-filter-option" class="input-bx select-bx" style="flex:1;min-width:120px">',
+					'<option value="">All Options</option>',
+					'<option value="235">Option 1</option>',
+					'<option value="237">Option 2</option>',
+				'</select>',
 				'<select id="picker-filter-payments" class="input-bx select-bx" style="flex:1;min-width:140px">',
 					'<option value="">All Payments</option>',
 					'<option value="193">Annually</option><option value="195">One Time</option>',
@@ -866,7 +921,8 @@ var FeeSyncWidget = (function () {
 					'<thead><tr style="background:#f7f9fa;position:sticky;top:0;z-index:1">',
 						'<th style="padding:8px 10px;width:36px;border-bottom:1px solid #e2e5ec"><input type="checkbox" id="picker-check-all"></th>',
 						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec">Name</th>',
-						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:100px">Price</th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:90px">Price</th>',
+						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:80px">Option</th>',
 						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:130px">Type of Cost</th>',
 						'<th style="padding:8px 10px;text-align:left;color:#828b95;font-weight:600;border-bottom:1px solid #e2e5ec;width:120px">Payments</th>',
 					'</tr></thead>',
@@ -896,6 +952,7 @@ var FeeSyncWidget = (function () {
 		function renderPickerRows() {
 			var query      = document.getElementById('picker-search').value.toLowerCase();
 			var filterType = document.getElementById('picker-filter-type').value;
+			var filterOpt  = document.getElementById('picker-filter-option').value;
 			var filterPay  = document.getElementById('picker-filter-payments').value;
 			var tbody2     = document.getElementById('picker-tbody');
 			tbody2.innerHTML = '';
@@ -904,14 +961,16 @@ var FeeSyncWidget = (function () {
 				var name = (p.NAME || p.name || '').toLowerCase();
 				var toc  = String(getPropValue(p, 'PROPERTY_111') || '');
 				var pay  = String(getPropValue(p, 'PROPERTY_109') || '');
+				var opt  = String(getPropValue(p, 'PROPERTY_119') || '');
 				if (query      && name.indexOf(query) === -1) return false;
 				if (filterType && toc !== filterType)         return false;
+				if (filterOpt  && opt !== filterOpt)          return false;
 				if (filterPay  && pay !== filterPay)          return false;
 				return true;
 			});
 
 			if (filtered.length === 0) {
-				tbody2.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#a8adb2">No products found</td></tr>';
+				tbody2.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#a8adb2">No products found</td></tr>';
 				return;
 			}
 
@@ -921,14 +980,22 @@ var FeeSyncWidget = (function () {
 				var price = parseFloat(p.PRICE || p.price || 0).toFixed(2);
 				var toc   = PROP_TYPE_OF_COST[getPropValue(p, 'PROPERTY_111')] || '—';
 				var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
+				var optId = getPropValue(p, 'PROPERTY_119');
+				var optLabel = PROP_OPTIONS[optId] || '—';
 				var isSel = !!selected[pid];
 
 				var tr2 = document.createElement('tr');
 				tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;transition:background 0.1s;' + (isSel ? 'background:#f0f8ff;' : '');
+
+				var optBadge = optId === '237'
+					? '<span class="option-badge option-badge-2">Opt 2</span>'
+					: (optId === '235' ? '<span class="option-badge option-badge-1">Opt 1</span>' : '<span style="color:#a8adb2">—</span>');
+
 				tr2.innerHTML = [
 					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + '></td>',
 					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
+					'<td style="padding:8px 10px">' + optBadge + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
 				].join('');
@@ -952,6 +1019,7 @@ var FeeSyncWidget = (function () {
 
 		document.getElementById('picker-search').addEventListener('input', renderPickerRows);
 		document.getElementById('picker-filter-type').addEventListener('change', renderPickerRows);
+		document.getElementById('picker-filter-option').addEventListener('change', renderPickerRows);
 		document.getElementById('picker-filter-payments').addEventListener('change', renderPickerRows);
 
 		document.getElementById('picker-check-all').addEventListener('change', function (e) {
@@ -971,6 +1039,7 @@ var FeeSyncWidget = (function () {
 			Object.values(selected).forEach(function (p) {
 				var toc = getPropValue(p, 'PROPERTY_111');
 				var pay = getPropValue(p, 'PROPERTY_109');
+				var opt = getPropValue(p, 'PROPERTY_119');
 				var row = {
 					id:          state.nextRowId++,
 					productId:   String(p.ID || p.id),
@@ -981,10 +1050,11 @@ var FeeSyncWidget = (function () {
 					taxIncluded: false,
 					typeOfCost:  toc,
 					payments:    pay,
+					option:      opt,
 					sort:        state.rows.length * 10,
 					spaId:       null
 				};
-				log('Added from catalog: ' + row.name + ', typeOfCost=' + row.typeOfCost + ', payments=' + row.payments);
+				log('Added from catalog: ' + row.name + ', typeOfCost=' + row.typeOfCost + ', option=' + row.option);
 				state.rows.push(row);
 				var tbody3 = document.getElementById('product-rows-body');
 				if (tbody3) tbody3.appendChild(buildRowEl(row, state.rows.length, state.rows.length - 1));
@@ -1004,7 +1074,7 @@ var FeeSyncWidget = (function () {
 		overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
 		var modal = document.createElement('div');
-		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;display:flex;flex-direction:column;gap:14px;';
+		modal.style.cssText = 'background:#fff;border-radius:8px;padding:24px;width:540px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-family:"Open Sans",Arial,sans-serif;font-size:13px;display:flex;flex-direction:column;gap:14px;';
 
 		modal.innerHTML = [
 			'<div style="display:flex;justify-content:space-between;align-items:center">',
@@ -1021,6 +1091,14 @@ var FeeSyncWidget = (function () {
 				'<div style="display:flex;flex-direction:column;gap:4px">',
 					'<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
 					'<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
+				'</div>',
+
+				'<div style="display:flex;flex-direction:column;gap:4px">',
+					'<label style="font-weight:600;color:#535c69">Option</label>',
+					'<select id="ep-option" class="input-bx select-bx">' +
+						buildEnumOpts([{id:'235',label:'Option 1'},{id:'237',label:'Option 2'}],
+							product ? getPropValue(product, 'PROPERTY_119') : '') +
+					'</select>',
 				'</div>',
 
 				'<div style="display:flex;flex-direction:column;gap:4px">',
@@ -1093,6 +1171,7 @@ var FeeSyncWidget = (function () {
 
 			var toc   = document.getElementById('ep-type-of-cost').value;
 			var pay   = document.getElementById('ep-payments').value;
+			var opt   = document.getElementById('ep-option').value;
 			var ct    = document.getElementById('ep-company-type').value;
 			var vt    = document.getElementById('ep-visa-type').value;
 			var vs    = document.getElementById('ep-visa-status').value;
@@ -1102,7 +1181,6 @@ var FeeSyncWidget = (function () {
 			btn.disabled = true; btn.textContent = 'Saving…';
 
 			if (isNew) {
-				// Fetch iblockId on-demand if not already loaded (handles race/failure at init)
 				function doCreate(iblockId) {
 					if (!iblockId) {
 						alert('Could not load catalog ID from Bitrix24. Please check your app permissions and try again.');
@@ -1112,6 +1190,7 @@ var FeeSyncWidget = (function () {
 					var addFields = { iblockId: iblockId, name: name, active: 'Y' };
 					if (toc) addFields['property111'] = toc;
 					if (pay) addFields['property109'] = pay;
+					if (opt) addFields['property119'] = opt;
 					if (ct)  addFields['property99']  = ct;
 					if (vt)  addFields['property101'] = vt;
 					if (vs)  addFields['property103'] = vs;
@@ -1137,7 +1216,7 @@ var FeeSyncWidget = (function () {
 							var row = {
 								id: state.nextRowId++, productId: String(newId), name: name,
 								price: price, qty: 1, taxRate: 0, taxIncluded: false,
-								typeOfCost: toc, payments: pay,
+								typeOfCost: toc, payments: pay, option: opt,
 								sort: state.rows.length * 10, spaId: null
 							};
 							state.rows.push(row);
@@ -1151,25 +1230,19 @@ var FeeSyncWidget = (function () {
 				if (state.iblockId) {
 					doCreate(state.iblockId);
 				} else {
-					// iblockId not cached yet — re-fetch using the same helpers
 					log('iblockId not cached — fetching on-demand…');
 					BX24.callMethod('catalog.catalog.list', { select: ['id', 'iblockId', 'iblockTypeId', 'productIblockId'] }, function (res) {
 						if (!res.error()) {
 							var catalogs = extractCatalogs(res.data());
 							var id = pickIblockId(catalogs);
-							if (id) {
-								state.iblockId = id;
-								log('iblockId fetched on-demand: ' + state.iblockId);
-							} else {
-								log('on-demand fetch: no usable catalog. raw=' + JSON.stringify(res.data()));
-							}
+							if (id) { state.iblockId = id; log('iblockId fetched on-demand: ' + id); }
+							else    { log('on-demand fetch: no usable catalog'); }
 						} else {
 							log('catalog.catalog.list error: ' + res.error());
 						}
 						doCreate(state.iblockId);
 					});
 				}
-				// Early return — doCreate handles the async flow above
 				return;
 
 			} else {
@@ -1185,6 +1258,7 @@ var FeeSyncWidget = (function () {
 					var updFields = { name: name, active: 'Y' };
 					if (toc) updFields['property111'] = { value: toc, valueId: getVid(prod, 'property111') };
 					if (pay) updFields['property109'] = { value: pay, valueId: getVid(prod, 'property109') };
+					if (opt) updFields['property119'] = { value: opt, valueId: getVid(prod, 'property119') };
 					if (ct)  updFields['property99']  = { value: ct,  valueId: getVid(prod, 'property99')  };
 					if (vt)  updFields['property101'] = { value: vt,  valueId: getVid(prod, 'property101') };
 					if (vs)  updFields['property103'] = { value: vs,  valueId: getVid(prod, 'property103') };
@@ -1223,12 +1297,11 @@ var FeeSyncWidget = (function () {
 			return;
 		}
 
-		// Debug dump before save
-		console.log('[FeeSyncWidget] Pre-save row data:', JSON.stringify(rows.map(function(r){
-			return { id: r.id, name: r.name, typeOfCost: r.typeOfCost, payments: r.payments, price: r.price };
+		console.log('[FeeSyncWidget] Pre-save rows:', JSON.stringify(rows.map(function(r){
+			return { id: r.id, name: r.name, typeOfCost: r.typeOfCost, option: r.option, payments: r.payments, price: r.price };
 		})));
 
-		showSaveModal('saving');
+		showSaveModal();
 		log('Saving ' + rows.length + ' row(s) to ' + state.entityType + ' #' + state.entityId);
 
 		var method = state.entityType === 'deal'
@@ -1260,16 +1333,18 @@ var FeeSyncWidget = (function () {
 				var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
 				updateEntityOpportunity(totalAmt, function () {
 					syncSpaItems(rows, function () {
-						closeSaveModal(true, rows.length + ' product' + (rows.length !== 1 ? 's' : ''));
-						setStatus('✓ Saved & synced', 'status-success');
-						log('All done');
+						updateEntityStatus(function () {
+							closeSaveModal(true, rows.length + ' product' + (rows.length !== 1 ? 's' : ''));
+							setStatus('✓ Saved & synced', 'status-success');
+							log('All done');
+						});
 					});
 				});
 			});
 		});
 	}
 
-	function showSaveModal(state2) {
+	function showSaveModal() {
 		var overlay = document.getElementById('save-modal-overlay');
 		var icon    = document.getElementById('save-modal-icon');
 		var title   = document.getElementById('save-modal-title');
@@ -1290,16 +1365,15 @@ var FeeSyncWidget = (function () {
 			var message    = document.getElementById('save-modal-message');
 			var detailsDiv = document.getElementById('save-modal-details');
 
+			icon.style.animation = 'none';
 			if (success) {
-				icon.style.animation = 'none';
-				icon.textContent   = '✅';
-				title.textContent  = 'All Changes Saved!';
+				icon.textContent    = '✅';
+				title.textContent   = 'All Changes Saved!';
 				message.textContent = 'Your products have been synced successfully.';
 				detailsDiv.innerHTML = '<div class="detail-row"><span>Products saved:</span><strong>' + detail + '</strong></div>';
 			} else {
-				icon.style.animation = 'none';
-				icon.textContent   = '❌';
-				title.textContent  = detail || 'Save Failed';
+				icon.textContent    = '❌';
+				title.textContent   = detail || 'Save Failed';
 				message.textContent = 'Please try again or contact support.';
 				detailsDiv.innerHTML = '';
 			}
@@ -1310,10 +1384,10 @@ var FeeSyncWidget = (function () {
 		}, 600);
 	}
 
-	// ─── Update catalog products via catalog.product.update ───────────────────
+	// ─── Update catalog products ──────────────────────────────────────────────
 	function updateCatalogProducts(rows, cb) {
 		var toUpdate = rows.filter(function (r) {
-			return r.productId && (r.typeOfCost || r.payments);
+			return r.productId && (r.typeOfCost || r.payments || r.option);
 		});
 
 		if (toUpdate.length === 0) { log('No catalog products to update'); if (cb) cb(); return; }
@@ -1334,8 +1408,9 @@ var FeeSyncWidget = (function () {
 
 				if (row.typeOfCost) fields['property111'] = { value: String(row.typeOfCost), valueId: getVid(prod, 'property111') };
 				if (row.payments)   fields['property109'] = { value: String(row.payments),   valueId: getVid(prod, 'property109') };
+				if (row.option)     fields['property119'] = { value: String(row.option),     valueId: getVid(prod, 'property119') };
 
-				console.log('[FeeSyncWidget] catalog.product.update #' + row.productId, JSON.stringify(fields));
+				log('catalog.product.update #' + row.productId + ' fields=' + JSON.stringify(fields));
 
 				BX24.callMethod('catalog.product.update', { id: row.productId, fields: fields }, function (res) {
 					if (res.error()) log('Error updating product #' + row.productId + ': ' + res.error());
@@ -1358,22 +1433,51 @@ var FeeSyncWidget = (function () {
 		});
 	}
 
-	// ─── SPA Sync ─────────────────────────────────────────────────────────────
-	function syncSpaItems(rows, cb) {
-		var profRows  = rows.filter(function (r) { return r.typeOfCost === '209'; });
-		var govRows   = rows.filter(function (r) { return r.typeOfCost === '207'; });
-		var otherRows = rows.filter(function (r) { return r.typeOfCost !== '209' && r.typeOfCost !== '207'; });
+	// ─── Set status field to "Done" ───────────────────────────────────────────
+	function updateEntityStatus(cb) {
+		var field  = STATUS_FIELDS[state.entityType];
+		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+		if (!field) { log('No status field for entity type: ' + state.entityType); if (cb) cb(); return; }
 
-		if (otherRows.length > 0) log('Skipping ' + otherRows.length + ' row(s) with no Type of Cost');
-		log('SPA: ' + profRows.length + ' Prof Fees, ' + govRows.length + ' Gov Cost');
+		var fields = {};
+		fields[field] = 'Done';
 
-		syncSpaGroup(1058, SPA_PROF_FIELDS, DEAL_PROF_FIELD, profRows, function () {
-			syncSpaGroup(1062, SPA_GOV_FIELDS, DEAL_GOV_FIELD, govRows, cb);
+		BX24.callMethod(method, { id: state.entityId, fields: fields }, function (res) {
+			if (res.error()) log('Error updating status field ' + field + ': ' + res.error());
+			else log('Status field ' + field + ' → Done');
+			if (cb) cb();
 		});
 	}
 
-	function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
-		if (rows.length === 0) { if (cb) cb(); return; }
+	// ─── SPA Sync ─────────────────────────────────────────────────────────────
+	// Groups rows into 4 buckets by (typeOfCost × option), syncs each group.
+	function syncSpaItems(rows, cb) {
+		var groups = { 1058: [], 1062: [], 1070: [], 1074: [] };
+
+		rows.forEach(function (r) {
+			var spaId = resolveSpaEntityTypeId(r.typeOfCost, r.option);
+			if (spaId) {
+				groups[spaId].push(r);
+			} else {
+				log('Skipping row "' + r.name + '" — unresolvable SPA type (typeOfCost=' + r.typeOfCost + ', option=' + r.option + ')');
+			}
+		});
+
+		log('SPA groups — 1058:' + groups[1058].length + ' 1062:' + groups[1062].length +
+		    ' 1070:' + groups[1070].length + ' 1074:' + groups[1074].length);
+
+		// Chain the four groups sequentially
+		syncSpaGroup(1058, SPA_PROF_FIELDS, getLinkField(1058), groups[1058], function () {
+			syncSpaGroup(1062, SPA_GOV_FIELDS, getLinkField(1062), groups[1062], function () {
+				syncSpaGroup(1070, SPA_PROF_FIELDS, getLinkField(1070), groups[1070], function () {
+					syncSpaGroup(1074, SPA_GOV_FIELDS, getLinkField(1074), groups[1074], cb);
+				});
+			});
+		});
+	}
+
+	function syncSpaGroup(entityTypeId, fieldMap, linkField, rows, cb) {
+		if (!rows || rows.length === 0) { if (cb) cb(); return; }
 		var spaIds  = [];
 		var pending = rows.length;
 
@@ -1385,37 +1489,53 @@ var FeeSyncWidget = (function () {
 					entityTypeId: entityTypeId, id: row.spaId, fields: fields
 				}, function (res) {
 					if (res.error()) log('SPA update error: ' + res.error());
-					else { log('SPA #' + row.spaId + ' updated'); spaIds.push(row.spaId); }
-					if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+					else { log('SPA #' + row.spaId + ' updated (type ' + entityTypeId + ')'); spaIds.push(row.spaId); }
+					if (--pending === 0) linkSpaToEntity(spaIds, linkField, cb);
 				});
 			} else {
+				var createFields = Object.assign({ TITLE: row.name, OPPORTUNITY: row.price * row.qty }, fields);
 				BX24.callMethod('crm.item.add', {
 					entityTypeId: entityTypeId,
-					fields: Object.assign({ TITLE: row.name, OPPORTUNITY: row.price }, fields)
+					fields: createFields
 				}, function (res) {
 					if (res.error()) {
-						log('SPA create error: ' + res.error());
+						log('SPA create error (type ' + entityTypeId + '): ' + res.error());
 					} else {
 						var newId = (res.data() && res.data().item) ? res.data().item.id : null;
-						if (newId) { row.spaId = newId; spaIds.push(newId); log('SPA created #' + newId); }
+						if (newId) { row.spaId = newId; spaIds.push(newId); log('SPA created #' + newId + ' (type ' + entityTypeId + ')'); }
 					}
-					if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+					if (--pending === 0) linkSpaToEntity(spaIds, linkField, cb);
 				});
 			}
 		});
 	}
 
+	// Link collected SPA IDs to the current entity's fee field
+	function linkSpaToEntity(spaIds, linkField, cb) {
+		if (!linkField || spaIds.length === 0) { if (cb) cb(); return; }
+
+		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+		var updateFields = {};
+		updateFields[linkField] = spaIds;
+
+		BX24.callMethod(method, { id: state.entityId, fields: updateFields }, function (res) {
+			if (res.error()) log('SPA link error (field ' + linkField + '): ' + res.error());
+			else log(state.entityType + ' #' + state.entityId + ' linked to SPA IDs [' + spaIds.join(',') + '] via ' + linkField);
+			if (cb) cb();
+		});
+	}
+
 	function buildSpaFields(row, fieldMap) {
 		var fields = {};
-		if (row.typeOfCost) {
+		if (row.typeOfCost && fieldMap.typeOfCost) {
 			var tocVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
 			if (tocVal !== undefined) fields[fieldMap.typeOfCost] = tocVal;
-			else log('WARN: SPA typeOfCost mapping failed for ' + row.typeOfCost);
+			else log('WARN: SPA typeOfCost mapping missing for ' + row.typeOfCost + ' on field ' + fieldMap.typeOfCost);
 		}
-		if (row.payments) {
+		if (row.payments && fieldMap.payments) {
 			var payVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
 			if (payVal !== undefined) fields[fieldMap.payments] = payVal;
-			else log('WARN: SPA payments mapping failed for ' + row.payments);
+			else log('WARN: SPA payments mapping missing for ' + row.payments + ' on field ' + fieldMap.payments);
 		}
 		return fields;
 	}
@@ -1432,17 +1552,6 @@ var FeeSyncWidget = (function () {
 		return map[String(catalogEnumId)] || undefined;
 	}
 
-	function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
-		if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') { if (cb) cb(); return; }
-		var updateFields = {};
-		updateFields[dealLinkField] = spaIds;
-		BX24.callMethod('crm.deal.update', { id: state.entityId, fields: updateFields }, function (res) {
-			if (res.error()) log('SPA link error: ' + res.error());
-			else log('Deal linked to ' + spaIds.length + ' SPA items (type ' + entityTypeId + ')');
-			if (cb) cb();
-		});
-	}
-
 	// ─── Bind actions ─────────────────────────────────────────────────────────
 	function bindActions() {
 		function rebind(id, handler) {
@@ -1455,9 +1564,7 @@ var FeeSyncWidget = (function () {
 		rebind('btn-add-product',    addEmptyRow);
 		rebind('btn-select-product', showProductPickerModal);
 		rebind('btn-save',           saveAndSync);
-		rebind('btn-edit-product',   function () {
-			showProductEditModal(null);
-		});
+		rebind('btn-edit-product',   function () { showProductEditModal(null); });
 	}
 
 	// ─── Helpers ──────────────────────────────────────────────────────────────
@@ -1468,7 +1575,7 @@ var FeeSyncWidget = (function () {
 	return { init: init };
 })();
 
-// ─── BX24 Bootstrap ─────────────────────────────────────────────────────────
+// ─── BX24 Bootstrap ──────────────────────────────────────────────────────────
 BX24.init(function () {
 	BX24.fitWindow();
 
