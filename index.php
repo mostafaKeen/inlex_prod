@@ -359,7 +359,7 @@
 				<tr>
 					<th style="width:50px;">#</th>
 					<th>Product Name</th>
-					<th style="width:100px;">Option</th>
+					<th style="width:140px;">Option</th>
 					<th style="width:170px;">Type of Cost</th>
 					<th style="width:140px;">Price</th>
 					<th style="width:160px;">Payments</th>
