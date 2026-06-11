@@ -4,6 +4,11 @@ require_once __DIR__ . '/FieldMapper.php';
 
 class SpaSync
 {
+	const SPA_PROF_FEES_OPT1 = 1058;
+	const SPA_GOV_FEES_OPT1  = 1062;
+	const SPA_PROF_FEES_OPT2 = 1070;
+	const SPA_GOV_FEES_OPT2  = 1074;
+
 	const SPA_PROFESSIONAL_FEES = 1058;
 	const SPA_GOVERNMENT_FEES   = 1062;
 
@@ -20,19 +25,29 @@ class SpaSync
 	];
 
 	/**
-	 * Determine SPA entity type from cost type value.
+	 * Determine SPA entity type from cost type value and option value.
 	 */
-	public static function resolveSpaEntityTypeId(?string $costType): ?int
+	public static function resolveSpaEntityTypeId(?string $costType, ?string $option = null): ?int
 	{
 		if ($costType === null || $costType === '') {
 			return null;
 		}
 		$normalized = mb_strtolower(trim($costType));
-		if (str_contains($normalized, 'government')) {
-			return self::SPA_GOVERNMENT_FEES;
+		$isGov = str_contains($normalized, 'government');
+		$isProf = str_contains($normalized, 'professional');
+
+		if (!$isGov && !$isProf) {
+			return null;
 		}
-		if (str_contains($normalized, 'professional')) {
-			return self::SPA_PROFESSIONAL_FEES;
+
+		$optionId = $option !== null ? trim($option) : '';
+		$isOption2 = ($optionId === '237' || mb_strtolower($optionId) === 'option 2');
+
+		if ($isGov) {
+			return $isOption2 ? self::SPA_GOV_FEES_OPT2 : self::SPA_GOV_FEES_OPT1;
+		}
+		if ($isProf) {
+			return $isOption2 ? self::SPA_PROF_FEES_OPT2 : self::SPA_PROF_FEES_OPT1;
 		}
 		return null;
 	}
@@ -154,6 +169,18 @@ class SpaSync
 			return null;
 		}
 		$propCode = $productPropertyMap[mb_strtolower('Type of Cost')] ?? null;
+		if (!$propCode) {
+			return null;
+		}
+		return self::extractCatalogPropertyValue($catalogProduct, $propCode);
+	}
+
+	public static function getOptionFromProduct(?array $catalogProduct, array $productPropertyMap): ?string
+	{
+		if (!$catalogProduct) {
+			return null;
+		}
+		$propCode = $productPropertyMap[mb_strtolower('Option')] ?? null;
 		if (!$propCode) {
 			return null;
 		}

@@ -14,6 +14,21 @@ class ProductSyncService
 		'deal' => 2,
 	];
 
+	const FEE_FIELD_MAPS = [
+		'deal' => [
+			1058 => 'UF_CRM_1779313011',
+			1062 => 'UF_CRM_1779654189',
+			1070 => 'UF_CRM_6A29D1F63E22F',
+			1074 => 'UF_CRM_6A29D1F65158B',
+		],
+		'lead' => [
+			1058 => 'UF_CRM_1780911226',
+			1062 => 'UF_CRM_1780912561',
+			1070 => 'UF_CRM_1781125540',
+			1074 => 'UF_CRM_1781125572',
+		],
+	];
+
 	/**
 	 * Run full product → SPA synchronization for a Lead or Deal.
 	 *
@@ -29,15 +44,17 @@ class ProductSyncService
 		$actions = [];
 		$errors  = [];
 
-		$feeFields = FieldMapper::discoverFeeLinkFields($entityType);
-		if (!$feeFields['professional'] && !$feeFields['government']) {
-			$errors[] = 'Could not discover Professional Fees or Government Fees CRM fields';
+		$feeFields = self::FEE_FIELD_MAPS[$entityType] ?? [];
+		if (empty($feeFields)) {
+			$errors[] = 'Could not retrieve Professional Fees or Government Fees CRM fields';
 		}
 
 		$productPropertyMap = SpaSync::discoverProductPropertyMap();
 		$spaFieldMaps = [
-			SpaSync::SPA_PROFESSIONAL_FEES => FieldMapper::buildSpaFieldMap(SpaSync::SPA_PROFESSIONAL_FEES),
-			SpaSync::SPA_GOVERNMENT_FEES   => FieldMapper::buildSpaFieldMap(SpaSync::SPA_GOVERNMENT_FEES),
+			1058 => FieldMapper::buildSpaFieldMap(1058),
+			1062 => FieldMapper::buildSpaFieldMap(1062),
+			1070 => FieldMapper::buildSpaFieldMap(1070),
+			1074 => FieldMapper::buildSpaFieldMap(1074),
 		];
 
 		$ownerType = self::OWNER_TYPE_MAP[$entityTypeId];
@@ -48,12 +65,17 @@ class ProductSyncService
 			return ['success' => false, 'actions' => [], 'errors' => ['Entity not found']];
 		}
 
-		$linkedSpaIds = [
-			'professional' => SpaSync::normalizeLinkedIds($entity[$feeFields['professional']] ?? null),
-			'government'   => SpaSync::normalizeLinkedIds($entity[$feeFields['government']] ?? null),
-		];
+		$linkedSpaIds = [];
+		foreach ($feeFields as $spaTypeId => $fieldCode) {
+			$linkedSpaIds[$spaTypeId] = SpaSync::normalizeLinkedIds($entity[$fieldCode] ?? null);
+		}
 
-		$processedSpaIds = [];
+		$processedSpaIds = [
+			1058 => [],
+			1062 => [],
+			1070 => [],
+			1074 => [],
+		];
 		$productNamesSeen = [];
 
 		foreach ($productRows as $row) {
@@ -65,14 +87,14 @@ class ProductSyncService
 
 			$catalogProduct = SpaSync::getCatalogProduct((int)($row['productId'] ?? 0));
 			$costType = SpaSync::getCostTypeFromProduct($catalogProduct, $productPropertyMap);
-			$spaEntityTypeId = SpaSync::resolveSpaEntityTypeId($costType);
+			$option = SpaSync::getOptionFromProduct($catalogProduct, $productPropertyMap);
+			$spaEntityTypeId = SpaSync::resolveSpaEntityTypeId($costType, $option);
 
 			if (!$spaEntityTypeId) {
-				$errors[] = "Product \"{$productName}\": could not determine fee type from cost type \"{$costType}\"";
+				$errors[] = "Product \"{$productName}\": could not determine fee type from cost type \"{$costType}\" and option \"{$option}\"";
 				continue;
 			}
 
-			$feeKey = $spaEntityTypeId === SpaSync::SPA_PROFESSIONAL_FEES ? 'professional' : 'government';
 			$spaFieldMap = $spaFieldMaps[$spaEntityTypeId];
 			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap);
 
@@ -90,17 +112,16 @@ class ProductSyncService
 				$actions[] = ['action' => 'created', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
 			}
 
-			$processedSpaIds[$feeKey][] = $spaItemId;
+			$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
 		}
 
 		// Link SPA items to entity fee fields
-		foreach (['professional', 'government'] as $feeKey) {
-			$fieldCode = $feeFields[$feeKey];
+		foreach ($feeFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
 				continue;
 			}
-			$newIds = array_values(array_unique($processedSpaIds[$feeKey] ?? []));
-			$currentIds = $linkedSpaIds[$feeKey];
+			$newIds = array_values(array_unique($processedSpaIds[$spaTypeId] ?? []));
+			$currentIds = $linkedSpaIds[$spaTypeId] ?? [];
 
 			if ($newIds !== $currentIds) {
 				self::updateEntityField($entityTypeId, $entityId, $fieldCode, $newIds);
@@ -110,7 +131,6 @@ class ProductSyncService
 			// Remove orphaned SPA items that were linked but product no longer exists
 			$orphaned = array_diff($currentIds, $newIds);
 			foreach ($orphaned as $orphanId) {
-				$spaTypeId = $feeKey === 'professional' ? SpaSync::SPA_PROFESSIONAL_FEES : SpaSync::SPA_GOVERNMENT_FEES;
 				$orphanItem = self::getSpaItem($spaTypeId, $orphanId);
 				$orphanName = $orphanItem['title'] ?? '';
 
@@ -124,6 +144,11 @@ class ProductSyncService
 				}
 			}
 		}
+
+		// Set utm_check to Done
+		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
+		self::updateEntityField($entityTypeId, $entityId, $utmCheckField, 'Done');
+		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
 
 		return [
 			'success' => empty($errors),
@@ -174,7 +199,7 @@ class ProductSyncService
 		return $result['result']['item'];
 	}
 
-	public static function updateEntityField(int $entityTypeId, int $entityId, string $fieldCode, array $values): bool
+	public static function updateEntityField(int $entityTypeId, int $entityId, string $fieldCode, $values): bool
 	{
 		$result = CRest::call('crm.item.update', [
 			'entityTypeId'       => $entityTypeId,

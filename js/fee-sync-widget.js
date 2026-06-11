@@ -126,7 +126,7 @@ var FeeSyncWidget = (function () {
     BX24.callMethod('crm.product.list', {
       select: ['ID', 'NAME', 'PRICE', 'CURRENCY_ID', 'ACTIVE',
                'PROPERTY_111', 'PROPERTY_109', 'PROPERTY_99',
-               'PROPERTY_101', 'PROPERTY_103'],
+               'PROPERTY_101', 'PROPERTY_103', 'PROPERTY_119'],
       filter: { 'ACTIVE': 'Y' },
       order:  { 'NAME': 'ASC' }
     }, function (res) {
@@ -173,6 +173,7 @@ var FeeSyncWidget = (function () {
     var catalogItem = findCatalogProduct(r.PRODUCT_ID);
     var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
     var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
+    var option      = getPropValue(catalogItem, 'PROPERTY_119') || '';
 
     var row = {
       id:          state.nextRowId++,
@@ -184,6 +185,7 @@ var FeeSyncWidget = (function () {
       taxIncluded: (r.TAX_INCLUDED === 'Y'),
       typeOfCost:  String(typeOfCost),
       payments:    String(payments),
+      option:      String(option),
       sort:        parseInt(r.SORT || 0),
       spaId:       null,
       _entityRow:  r
@@ -192,7 +194,8 @@ var FeeSyncWidget = (function () {
     log('Row #' + row.id + ': product=' + row.productId +
         ', name=' + row.name +
         ', typeOfCost=' + row.typeOfCost +
-        ', payments=' + row.payments);
+        ', payments=' + row.payments +
+        ', option=' + row.option);
 
     return row;
   }
@@ -245,6 +248,11 @@ var FeeSyncWidget = (function () {
       { id: '209', label: 'Professional Fees' }
     ], row.typeOfCost);
 
+    var optOpts = buildEnumOpts([
+      { id: '235', label: 'Option 1' },
+      { id: '237', label: 'Option 2' }
+    ], row.option);
+
     var payOpts = buildEnumOpts([
       { id: '193', label: 'Annually' },
       { id: '195', label: 'One Time' },
@@ -260,7 +268,7 @@ var FeeSyncWidget = (function () {
     tr.innerHTML = [
       '<td><div class="row-number"><span class="drag-handle">⠿</span><span>' + num + '</span></div></td>',
       '<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
-      '<td></td>',
+      '<td><select class="input-bx select-bx js-option">' + optOpts + '</select></td>',
       '<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
       '<td><div class="input-bx-wrapper">',
         '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
@@ -277,6 +285,7 @@ var FeeSyncWidget = (function () {
     ].join('');
 
     tr.querySelector('.js-product-name').addEventListener('input', function (e) { updateRowField(row.id, 'name', e.target.value); });
+    tr.querySelector('.js-option').addEventListener('change', function (e) { updateRowField(row.id, 'option', e.target.value); });
     tr.querySelector('.js-type-of-cost').addEventListener('change', function (e) { updateRowField(row.id, 'typeOfCost', e.target.value); });
     tr.querySelector('.js-payments').addEventListener('change', function (e) { updateRowField(row.id, 'payments', e.target.value); });
     tr.querySelector('.js-price').addEventListener('input', function (e) {
@@ -392,7 +401,7 @@ var FeeSyncWidget = (function () {
     var row = {
       id: state.nextRowId++, productId: '', name: '',
       price: 0, qty: 1, taxRate: 0, taxIncluded: false,
-      typeOfCost: '', payments: '',
+      typeOfCost: '', payments: '', option: '',
       sort: state.rows.length * 10, spaId: null
     };
     state.rows.push(row);
@@ -533,6 +542,7 @@ var FeeSyncWidget = (function () {
           qty: 1, taxRate: 0, taxIncluded: false,
           typeOfCost: getPropValue(p, 'PROPERTY_111'),
           payments:   getPropValue(p, 'PROPERTY_109'),
+          option:     getPropValue(p, 'PROPERTY_119'),
           sort: state.rows.length * 10, spaId: null
         };
         state.rows.push(row);
@@ -557,12 +567,14 @@ var FeeSyncWidget = (function () {
       var priceEl = tr2.querySelector('.js-price');
       var taxEl   = tr2.querySelector('.js-tax');
       var nameEl  = tr2.querySelector('.js-product-name');
+      var optEl   = tr2.querySelector('.js-option');
       var tocEl   = tr2.querySelector('.js-type-of-cost');
       var payEl   = tr2.querySelector('.js-payments');
 
       if (priceEl) row.price     = parseFloat(priceEl.value) || 0;
       if (taxEl)   row.taxRate   = parseFloat(taxEl.value)   || 0;
       if (nameEl)  row.name      = nameEl.value;
+      if (optEl && optEl.value) row.option     = optEl.value;
       if (tocEl && tocEl.value) row.typeOfCost = tocEl.value;
       if (payEl && payEl.value) row.payments   = payEl.value;
 
@@ -641,7 +653,7 @@ var FeeSyncWidget = (function () {
 
   function updateCatalogProducts(rows, cb) {
     var toUpdate = rows.filter(function (r) {
-      return r.productId && (r.typeOfCost || r.payments);
+      return r.productId && (r.typeOfCost || r.payments || r.option);
     });
 
     if (toUpdate.length === 0) { if (cb) cb(); return; }
@@ -666,9 +678,15 @@ var FeeSyncWidget = (function () {
             var payVid = (pay && pay.valueId) ? pay.valueId : 0;
             fields['property109'] = { value: String(row.payments), valueId: payVid };
           }
+          if (row.option) {
+            var opt    = prod ? (prod['property119'] || prod['PROPERTY_119']) : null;
+            var optVid = (opt && opt.valueId) ? opt.valueId : 0;
+            fields['property119'] = { value: String(row.option), valueId: optVid };
+          }
         } else {
           if (row.typeOfCost) fields['property111'] = { value: String(row.typeOfCost), valueId: 0 };
           if (row.payments)   fields['property109'] = { value: String(row.payments),   valueId: 0 };
+          if (row.option)     fields['property119'] = { value: String(row.option),     valueId: 0 };
         }
 
         BX24.callMethod('catalog.product.update', {
@@ -699,22 +717,79 @@ var FeeSyncWidget = (function () {
   }
 
   function syncSpaItems(rows, cb) {
-    var profRows  = rows.filter(function (r) { return r.typeOfCost === '209'; });
-    var govRows   = rows.filter(function (r) { return r.typeOfCost === '207'; });
-    var otherRows = rows.filter(function (r) { return r.typeOfCost !== '209' && r.typeOfCost !== '207'; });
+    var groups = {
+      1058: [],
+      1062: [],
+      1070: [],
+      1074: []
+    };
 
-    if (otherRows.length > 0) {
-      log('Skipping ' + otherRows.length + ' row(s) with no Type of Cost');
-    }
-    log('Syncing ' + profRows.length + ' Prof Fee, ' + govRows.length + ' Gov Cost SPA items');
+    rows.forEach(function (r) {
+      var spaId = resolveSpaEntityTypeId(r.typeOfCost, r.option);
+      if (spaId && groups[spaId]) {
+        groups[spaId].push(r);
+      } else {
+        log('Skipping row ' + r.id + ' with unresolvable SPA Type (typeOfCost=' + r.typeOfCost + ', option=' + r.option + ')');
+      }
+    });
 
-    syncSpaGroup(1058, SPA_PROF_FIELDS, DEAL_PROF_FIELD, profRows, function () {
-      syncSpaGroup(1062, SPA_GOV_FIELDS, DEAL_GOV_FIELD, govRows, cb);
+    log('Syncing SPA items across four groups...');
+
+    syncSpaGroup(1058, SPA_PROF_FIELDS, getLinkField(1058), groups[1058], function () {
+      syncSpaGroup(1062, SPA_GOV_FIELDS, getLinkField(1062), groups[1062], function () {
+        syncSpaGroup(1070, {}, getLinkField(1070), groups[1070], function () {
+          syncSpaGroup(1074, {}, getLinkField(1074), groups[1074], function () {
+            updateEntityStatus(cb);
+          });
+        });
+      });
     });
   }
 
-  function syncSpaGroup(entityTypeId, fieldMap, dealLinkField, rows, cb) {
-    if (rows.length === 0) { if (cb) cb(); return; }
+  function resolveSpaEntityTypeId(typeOfCost, option) {
+    var isGov = (typeOfCost === '207');
+    var isProf = (typeOfCost === '209');
+    if (!isGov && !isProf) return null;
+    var isOption2 = (option === '237' || String(option).toLowerCase() === 'option 2');
+    if (isGov) return isOption2 ? 1074 : 1062;
+    if (isProf) return isOption2 ? 1070 : 1058;
+    return null;
+  }
+
+  function getLinkField(spaTypeId) {
+    var DEAL_FIELDS = {
+      1058: 'UF_CRM_1779313011',
+      1062: 'UF_CRM_1779654189',
+      1070: 'UF_CRM_6A29D1F63E22F',
+      1074: 'UF_CRM_6A29D1F65158B'
+    };
+    var LEAD_FIELDS = {
+      1058: 'UF_CRM_1780911226',
+      1062: 'UF_CRM_1780912561',
+      1070: 'UF_CRM_1781125540',
+      1074: 'UF_CRM_1781125572'
+    };
+    var map = state.entityType === 'deal' ? DEAL_FIELDS : LEAD_FIELDS;
+    return map[spaTypeId] || null;
+  }
+
+  function updateEntityStatus(cb) {
+    var field = state.entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
+    var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+    var fields = {};
+    fields[field] = 'Done';
+    BX24.callMethod(method, { id: state.entityId, fields: fields }, function (res) {
+      if (res.error()) {
+        log('Error updating status field ' + field + ': ' + res.error());
+      } else {
+        log('Entity status field ' + field + ' updated to Done');
+      }
+      if (cb) cb();
+    });
+  }
+
+  function syncSpaGroup(entityTypeId, fieldMap, linkField, rows, cb) {
+    if (!rows || rows.length === 0) { if (cb) cb(); return; }
 
     var spaIds  = [];
     var pending = rows.length;
@@ -728,7 +803,7 @@ var FeeSyncWidget = (function () {
         }, function (res) {
           if (res.error()) log('SPA update error: ' + res.error());
           else { log('SPA item #' + row.spaId + ' updated'); spaIds.push(row.spaId); }
-          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, linkField, cb);
         });
       } else {
         BX24.callMethod('crm.item.add', {
@@ -741,7 +816,7 @@ var FeeSyncWidget = (function () {
             var newId = (res.data() && res.data().item) ? res.data().item.id : null;
             if (newId) { row.spaId = newId; spaIds.push(newId); log('SPA item created #' + newId); }
           }
-          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb);
+          if (--pending === 0) linkSpaToEntity(entityTypeId, spaIds, linkField, cb);
         });
       }
     });
@@ -749,11 +824,11 @@ var FeeSyncWidget = (function () {
 
   function buildSpaFields(row, fieldMap) {
     var fields = {};
-    if (row.typeOfCost) {
+    if (row.typeOfCost && fieldMap.typeOfCost) {
       var tocVal = mapSpaEnumValueById(fieldMap.typeOfCost, row.typeOfCost);
       if (tocVal !== undefined) fields[fieldMap.typeOfCost] = tocVal;
     }
-    if (row.payments) {
+    if (row.payments && fieldMap.payments) {
       var payVal = mapSpaEnumValueById(fieldMap.payments, row.payments);
       if (payVal !== undefined) fields[fieldMap.payments] = payVal;
     }
@@ -772,13 +847,14 @@ var FeeSyncWidget = (function () {
     return map[String(catalogEnumId)] || undefined;
   }
 
-  function linkSpaToEntity(entityTypeId, spaIds, dealLinkField, cb) {
-    if (!dealLinkField || spaIds.length === 0 || state.entityType !== 'deal') { if (cb) cb(); return; }
+  function linkSpaToEntity(entityTypeId, spaIds, linkField, cb) {
+    if (!linkField || spaIds.length === 0) { if (cb) cb(); return; }
     var updateFields = {};
-    updateFields[dealLinkField] = spaIds;
-    BX24.callMethod('crm.deal.update', { id: state.entityId, fields: updateFields }, function (res) {
+    updateFields[linkField] = spaIds;
+    var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+    BX24.callMethod(method, { id: state.entityId, fields: updateFields }, function (res) {
       if (res.error()) log('SPA link error: ' + res.error());
-      else log('Deal linked to ' + spaIds.length + ' SPA items');
+      else log(state.entityType + ' linked to ' + spaIds.length + ' SPA items');
       if (cb) cb();
     });
   }
@@ -809,6 +885,14 @@ var FeeSyncWidget = (function () {
         '<div style="display:flex;flex-direction:column;gap:4px">',
           '<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
           '<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
+        '</div>',
+
+        '<div style="display:flex;flex-direction:column;gap:4px">',
+          '<label style="font-weight:600;color:#535c69">Option</label>',
+          '<select id="ep-option" class="input-bx select-bx">' +
+            buildEnumOpts([{id:'235',label:'Option 1'},{id:'237',label:'Option 2'}],
+              product ? getPropValue(product, 'PROPERTY_119') : '') +
+          '</select>',
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
@@ -850,6 +934,7 @@ var FeeSyncWidget = (function () {
 
       var toc = document.getElementById('ep-type-of-cost').value;
       var pay = document.getElementById('ep-payments').value;
+      var opt = document.getElementById('ep-option').value;
       var price = parseFloat(document.getElementById('ep-price').value) || 0;
 
       var btn = document.getElementById('ep-save');
@@ -864,6 +949,7 @@ var FeeSyncWidget = (function () {
         var addFields = { iblockId: state.iblockId, name: name, active: 'Y' };
         if (toc) addFields['property111'] = toc;
         if (pay) addFields['property109'] = pay;
+        if (opt) addFields['property119'] = opt;
 
         BX24.callMethod('catalog.product.add', { fields: addFields }, function (res) {
           if (res.error()) {
@@ -888,7 +974,7 @@ var FeeSyncWidget = (function () {
               var row = {
                 id: state.nextRowId++, productId: String(newId), name: name,
                 price: price, qty: 1, taxRate: 0, taxIncluded: false,
-                typeOfCost: toc, payments: pay,
+                typeOfCost: toc, payments: pay, option: opt,
                 sort: state.rows.length * 10, spaId: null
               };
               state.rows.push(row);
@@ -911,6 +997,7 @@ var FeeSyncWidget = (function () {
 
           if (toc) updFields['property111'] = { value: toc, valueId: getVid(prod, 'property111') };
           if (pay) updFields['property109'] = { value: pay, valueId: getVid(prod, 'property109') };
+          if (opt) updFields['property119'] = { value: opt, valueId: getVid(prod, 'property119') };
 
           BX24.callMethod('catalog.product.update', { id: productId, fields: updFields }, function (res) {
             if (res.error()) {
