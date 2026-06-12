@@ -60,7 +60,7 @@ class ProductSyncService
 		$ownerType = self::OWNER_TYPE_MAP[$entityTypeId];
 		$productRows = self::getProductRows($ownerType, $entityId);
 
-		$entity = self::getEntity($entityTypeId, $entityId);
+		$entity = self::getClassicEntity($entityType, $entityId);
 		if (!$entity) {
 			return ['success' => false, 'actions' => [], 'errors' => ['Entity not found']];
 		}
@@ -157,7 +157,7 @@ class ProductSyncService
 		// Update Sub_Total_* fields per fee type/option
 		// Money-type UF fields require "amount|CURRENCY" format, otherwise
 		// crm.item.update silently ignores the value.
-		$currencyId = $entity['currencyId'] ?? 'AED';
+		$currencyId = $entity['CURRENCY_ID'] ?? 'AED';
 		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
 		foreach ($subtotalFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
@@ -166,12 +166,9 @@ class ProductSyncService
 			$amount = $subtotals[$spaTypeId] ?? 0.0;
 			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
 
-			$updateResult = CRest::call('crm.item.update', [
-				'entityTypeId'       => $entityTypeId,
-				'id'                 => $entityId,
-				'fields'             => [$fieldCode => $value],
-				'useOriginalUfNames' => 'Y',
-			]);
+			$updateResult = $entityType === 'lead'
+				? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+				: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
 			CRest::setLog([
 				'field'    => $fieldCode,
 				'spaType'  => $spaTypeId,
@@ -197,7 +194,7 @@ class ProductSyncService
 			$currentIds = $linkedSpaIds[$spaTypeId] ?? [];
 
 			if ($newIds !== $currentIds) {
-				self::updateEntityField($entityTypeId, $entityId, $fieldCode, $newIds);
+				self::updateClassicEntityField($entityType, $entityId, $fieldCode, $newIds);
 				$actions[] = ['action' => 'linked', 'field' => $fieldCode, 'ids' => $newIds];
 			}
 
@@ -211,7 +208,7 @@ class ProductSyncService
 
 		// Set utm_check to Done
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
-		self::updateEntityField($entityTypeId, $entityId, $utmCheckField, 'Done');
+		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
 		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
 
 		return [
@@ -300,6 +297,24 @@ class ProductSyncService
 		return $result['result']['productRows'] ?? [];
 	}
 
+	/**
+	 * Get a Lead or Deal entity using the classic CRM methods.
+	 * crm.item.get / entityTypeId 1|2 only works for Universal/SPA-migrated
+	 * installs; classic Leads and Deals must use crm.lead.get / crm.deal.get.
+	 */
+	public static function getClassicEntity(string $entityType, int $entityId): ?array
+	{
+		$method = $entityType === 'lead' ? 'crm.lead.get' : 'crm.deal.get';
+		$result = CRest::call($method, [
+			'id' => $entityId,
+		]);
+		if (!empty($result['error']) || empty($result['result'])) {
+			CRest::setLog($result, 'classic_entity_get_error');
+			return null;
+		}
+		return $result['result'];
+	}
+
 	public static function getEntity(int $entityTypeId, int $entityId): ?array
 	{
 		$result = CRest::call('crm.item.get', [
@@ -324,6 +339,24 @@ class ProductSyncService
 			return null;
 		}
 		return $result['result']['item'];
+	}
+
+	/**
+	 * Update fields on a Lead or Deal using classic CRM methods.
+	 */
+	public static function updateClassicEntityField(string $entityType, int $entityId, string $fieldCode, $values): bool
+	{
+		$method = $entityType === 'lead' ? 'crm.lead.update' : 'crm.deal.update';
+		$result = CRest::call($method, [
+			'id'     => $entityId,
+			'fields' => [$fieldCode => $values],
+			'params' => ['REGISTER_SONET_EVENT' => 'N'],
+		]);
+		if (!empty($result['error'])) {
+			CRest::setLog($result, 'classic_entity_update_error');
+			return false;
+		}
+		return true;
 	}
 
 	public static function updateEntityField(int $entityTypeId, int $entityId, string $fieldCode, $values): bool
