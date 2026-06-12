@@ -155,13 +155,18 @@ class ProductSyncService
 		}
 
 		// Update Sub_Total_* fields per fee type/option
+		// Money-type UF fields require "amount|CURRENCY" format, otherwise
+		// crm.item.update silently ignores the value.
+		$currencyId = $entity['currencyId'] ?? 'AED';
 		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
 		foreach ($subtotalFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
 				continue;
 			}
-			self::updateEntityField($entityTypeId, $entityId, $fieldCode, $subtotals[$spaTypeId] ?? 0.0);
-			$actions[] = ['action' => 'updated_subtotal', 'field' => $fieldCode, 'spaType' => $spaTypeId, 'value' => $subtotals[$spaTypeId] ?? 0.0];
+			$amount = $subtotals[$spaTypeId] ?? 0.0;
+			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
+			self::updateEntityField($entityTypeId, $entityId, $fieldCode, $value);
+			$actions[] = ['action' => 'updated_subtotal', 'field' => $fieldCode, 'spaType' => $spaTypeId, 'value' => $value];
 		}
 
 		// Link SPA items to entity fee fields
