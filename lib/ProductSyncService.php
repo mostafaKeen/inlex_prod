@@ -76,16 +76,22 @@ class ProductSyncService
 			1070 => [],
 			1074 => [],
 		];
-		$productNamesSeen = [];
+
+		$subtotals = [
+			1058 => 0.0,
+			1062 => 0.0,
+			1070 => 0.0,
+			1074 => 0.0,
+		];
 
 		foreach ($productRows as $row) {
 			$productName = trim($row['productName'] ?? '');
-			if ($productName === '') {
+			$productId = (int)($row['productId'] ?? 0);
+			if ($productName === '' || $productId <= 0) {
 				continue;
 			}
-			$productNamesSeen[] = $productName;
 
-			$catalogProduct = SpaSync::getCatalogProduct((int)($row['productId'] ?? 0));
+			$catalogProduct = SpaSync::getCatalogProduct($productId);
 			$costType = SpaSync::getCostTypeFromProduct($catalogProduct, $productPropertyMap);
 			$option = SpaSync::getOptionFromProduct($catalogProduct, $productPropertyMap);
 			$spaEntityTypeId = SpaSync::resolveSpaEntityTypeId($costType, $option);
@@ -95,24 +101,67 @@ class ProductSyncService
 				continue;
 			}
 
+			$externalId = "{$entityType}_{$entityId}_{$productId}";
 			$spaFieldMap = $spaFieldMaps[$spaEntityTypeId];
-			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap);
+			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap, $externalId);
 
-			$existing = SpaSync::findSpaItemByName($spaEntityTypeId, $productName);
+			// Accumulate sub-total for this fee type/option based on row price x quantity
+			$rowPrice = (float)($row['price'] ?? 0);
+			$rowQty   = (float)($row['quantity'] ?? 1);
+			$subtotals[$spaEntityTypeId] += $rowPrice * $rowQty;
+
+			// Search for existing SPA item with this externalId across all 4 SPA types
+			$existing = null;
+			$existingSpaTypeId = null;
+			foreach ([1058, 1062, 1070, 1074] as $typeId) {
+				$item = SpaSync::findSpaItemByXmlId($typeId, $externalId);
+				if ($item) {
+					$existing = $item;
+					$existingSpaTypeId = $typeId;
+					break;
+				}
+			}
+
 			if ($existing) {
-				$spaItemId = (int)$existing['id'];
-				SpaSync::updateSpaItem($spaEntityTypeId, $spaItemId, $spaFields);
-				$actions[] = ['action' => 'updated', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
+				$existingId = (int)$existing['id'];
+				if ($existingSpaTypeId === $spaEntityTypeId) {
+					// Same type: update
+					SpaSync::updateSpaItem($spaEntityTypeId, $existingId, $spaFields);
+					$actions[] = ['action' => 'updated', 'spaType' => $spaEntityTypeId, 'spaId' => $existingId, 'product' => $productName];
+					$processedSpaIds[$spaEntityTypeId][] = $existingId;
+				} else {
+					// Different type: delete old, create new
+					SpaSync::deleteSpaItem($existingSpaTypeId, $existingId);
+					$actions[] = ['action' => 'deleted_old_for_type_change', 'spaType' => $existingSpaTypeId, 'spaId' => $existingId, 'product' => $productName];
+
+					$spaItemId = SpaSync::createSpaItem($spaEntityTypeId, $spaFields);
+					if (!$spaItemId) {
+						$errors[] = "Failed to recreate SPA item for product \"{$productName}\" after type change";
+						continue;
+					}
+					$actions[] = ['action' => 'created_new_for_type_change', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
+					$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
+				}
 			} else {
+				// No existing item: create new
 				$spaItemId = SpaSync::createSpaItem($spaEntityTypeId, $spaFields);
 				if (!$spaItemId) {
 					$errors[] = "Failed to create SPA item for product \"{$productName}\"";
 					continue;
 				}
 				$actions[] = ['action' => 'created', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
+				$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
 			}
+		}
 
-			$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
+		// Update Sub_Total_* fields per fee type/option
+		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
+		foreach ($subtotalFields as $spaTypeId => $fieldCode) {
+			if (!$fieldCode) {
+				continue;
+			}
+			self::updateEntityField($entityTypeId, $entityId, $fieldCode, $subtotals[$spaTypeId] ?? 0.0);
+			$actions[] = ['action' => 'updated_subtotal', 'field' => $fieldCode, 'spaType' => $spaTypeId, 'value' => $subtotals[$spaTypeId] ?? 0.0];
 		}
 
 		// Link SPA items to entity fee fields
@@ -131,17 +180,8 @@ class ProductSyncService
 			// Remove orphaned SPA items that were linked but product no longer exists
 			$orphaned = array_diff($currentIds, $newIds);
 			foreach ($orphaned as $orphanId) {
-				$orphanItem = self::getSpaItem($spaTypeId, $orphanId);
-				$orphanName = $orphanItem['title'] ?? '';
-
-				if ($orphanName !== '' && !in_array($orphanName, $productNamesSeen, true)) {
-					if (!SpaSync::isSpaItemReferencedElsewhere($spaTypeId, $orphanId, $entityTypeId, $entityId)) {
-						SpaSync::deleteSpaItem($spaTypeId, $orphanId);
-						$actions[] = ['action' => 'deleted', 'spaType' => $spaTypeId, 'spaId' => $orphanId, 'product' => $orphanName];
-					} else {
-						$actions[] = ['action' => 'unlinked', 'spaType' => $spaTypeId, 'spaId' => $orphanId];
-					}
-				}
+				SpaSync::deleteSpaItem($spaTypeId, $orphanId);
+				$actions[] = ['action' => 'deleted_orphan', 'spaType' => $spaTypeId, 'spaId' => $orphanId];
 			}
 		}
 
@@ -149,6 +189,69 @@ class ProductSyncService
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
 		self::updateEntityField($entityTypeId, $entityId, $utmCheckField, 'Done');
 		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+
+		return [
+			'success' => empty($errors),
+			'actions' => $actions,
+			'errors'  => $errors,
+		];
+	}
+
+	/**
+	 * Sync all Leads and Deals that reference a specific catalog product.
+	 */
+	public static function syncAllEntitiesByProduct(int $productId): array
+	{
+		$actions = [];
+		$errors  = [];
+
+		if ($productId <= 0) {
+			return ['success' => false, 'actions' => [], 'errors' => ['Invalid product ID']];
+		}
+
+		$result = CRest::call('crm.item.productrow.list', [
+			'filter' => [
+				'=productId' => $productId,
+			],
+		]);
+
+		if (!empty($result['error'])) {
+			CRest::setLog($result, 'productrow_list_by_product_error');
+			return ['success' => false, 'actions' => [], 'errors' => [$result['error_description'] ?? 'Error fetching product rows']];
+		}
+
+		$productRows = $result['result']['productRows'] ?? [];
+		$entitiesToSync = [];
+
+		foreach ($productRows as $row) {
+			$ownerType = $row['ownerType'] ?? '';
+			$ownerId = (int)($row['ownerId'] ?? 0);
+
+			if ($ownerId <= 0) {
+				continue;
+			}
+
+			$entityType = null;
+			if ($ownerType === 'L') {
+				$entityType = 'lead';
+			} elseif ($ownerType === 'D') {
+				$entityType = 'deal';
+			}
+
+			if ($entityType) {
+				$key = "{$entityType}:{$ownerId}";
+				$entitiesToSync[$key] = [
+					'type' => $entityType,
+					'id'   => $ownerId,
+				];
+			}
+		}
+
+		foreach ($entitiesToSync as $entityInfo) {
+			$syncRes = self::syncEntity($entityInfo['type'], $entityInfo['id']);
+			$actions = array_merge($actions, $syncRes['actions'] ?? []);
+			$errors  = array_merge($errors, $syncRes['errors'] ?? []);
+		}
 
 		return [
 			'success' => empty($errors),

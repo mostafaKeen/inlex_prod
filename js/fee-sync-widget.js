@@ -717,32 +717,32 @@ var FeeSyncWidget = (function () {
   }
 
   function syncSpaItems(rows, cb) {
-    var groups = {
-      1058: [],
-      1062: [],
-      1070: [],
-      1074: []
-    };
-
-    rows.forEach(function (r) {
-      var spaId = resolveSpaEntityTypeId(r.typeOfCost, r.option);
-      if (spaId && groups[spaId]) {
-        groups[spaId].push(r);
+    log('Calling backend SPA Sync API...');
+    fetch('api/sync.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entityType: state.entityType,
+        entityId: state.entityId,
+        action: 'sync'
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.success) {
+        log('Backend SPA Sync completed successfully.');
+        if (cb) cb();
       } else {
-        log('Skipping row ' + r.id + ' with unresolvable SPA Type (typeOfCost=' + r.typeOfCost + ', option=' + r.option + ')');
+        var errMsg = (data && data.errors && data.errors.join(', ')) || 'Unknown error';
+        log('Backend SPA Sync failed: ' + errMsg);
+        setStatus('Sync completed with errors: ' + errMsg, 'status-warning');
+        if (cb) cb();
       }
-    });
-
-    log('Syncing SPA items across four groups...');
-
-    syncSpaGroup(1058, SPA_PROF_FIELDS, getLinkField(1058), groups[1058], function () {
-      syncSpaGroup(1062, SPA_GOV_FIELDS, getLinkField(1062), groups[1062], function () {
-        syncSpaGroup(1070, {}, getLinkField(1070), groups[1070], function () {
-          syncSpaGroup(1074, {}, getLinkField(1074), groups[1074], function () {
-            updateEntityStatus(cb);
-          });
-        });
-      });
+    })
+    .catch(function (err) {
+      log('HTTP error during SPA Sync: ' + err);
+      setStatus('HTTP error during sync', 'status-danger');
+      if (cb) cb();
     });
   }
 

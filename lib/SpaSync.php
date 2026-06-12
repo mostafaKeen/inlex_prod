@@ -15,6 +15,22 @@ class SpaSync
 	const COST_TYPE_GOVERNMENT    = 'government cost';
 	const COST_TYPE_PROFESSIONAL  = 'professional cost';
 
+	/** Sub-total field codes per entity type, keyed by SPA entity type ID */
+	const SUBTOTAL_FIELD_MAPS = [
+		'deal' => [
+			1058 => 'UF_CRM_6A2BBF1079900', // Sub_Total_P_Option1
+			1062 => 'UF_CRM_6A2BBF1037949', // Sub_Total_G_Option1
+			1070 => 'UF_CRM_6A2BBF108E6DF', // Sub_Total_P_Option2
+			1074 => 'UF_CRM_6A2BBF10601D8', // Sub_Total_G_Option2
+		],
+		'lead' => [
+			1058 => 'UF_CRM_1781250868208', // Sub_Total_P_Option1
+			1062 => 'UF_CRM_1781250851186', // Sub_Total_G_Option1
+			1070 => 'UF_CRM_1781250874422', // Sub_Total_P_Option2
+			1074 => 'UF_CRM_1781250858979', // Sub_Total_G_Option2
+		],
+	];
+
 	/** Product property label → SPA field labels */
 	const FIELD_SYNC_MAP = [
 		'Type of Cost'              => ['Cost Type', 'Type of Cost'],
@@ -70,18 +86,40 @@ class SpaSync
 	}
 
 	/**
+	 * Find SPA item by External ID (xmlId).
+	 */
+	public static function findSpaItemByXmlId(int $entityTypeId, string $xmlId): ?array
+	{
+		$result = CRest::call('crm.item.list', [
+			'entityTypeId' => $entityTypeId,
+			'filter'       => ['=xmlId' => $xmlId],
+			'select'       => ['id', 'title', 'xmlId', 'opportunity', '*'],
+		]);
+
+		if (!empty($result['error']) || empty($result['result']['items'])) {
+			return null;
+		}
+		return $result['result']['items'][0];
+	}
+
+	/**
 	 * Build SPA fields payload from product row and catalog product data.
 	 */
 	public static function buildSpaFields(
 		array $productRow,
 		?array $catalogProduct,
 		array $productPropertyMap,
-		array $spaFieldMap
+		array $spaFieldMap,
+		?string $xmlId = null
 	): array {
 		$fields = [];
 
 		$titleField = FieldMapper::resolveSpaField($spaFieldMap, ['title', 'name']);
 		$fields[$titleField ?: 'title'] = $productRow['productName'] ?? '';
+
+		if ($xmlId !== null && $xmlId !== '') {
+			$fields['xmlId'] = $xmlId;
+		}
 
 		$price = (float)($productRow['price'] ?? 0);
 		$quantity = (float)($productRow['quantity'] ?? 1);

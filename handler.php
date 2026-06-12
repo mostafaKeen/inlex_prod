@@ -32,6 +32,20 @@ switch ($event) {
 		$entityId   = (int)($data['FIELDS']['ID'] ?? $data['ID'] ?? 0);
 		break;
 
+	case 'ONCRMPRODUCTUPDATE':
+	case 'CATALOG.PRODUCT.ON.UPDATE':
+		$productId = (int)($data['FIELDS']['ID'] ?? $data['ID'] ?? 0);
+		if ($productId > 0) {
+			$result = ProductSyncService::syncAllEntitiesByProduct($productId);
+			CRest::setLog([
+				'event'  => $event,
+				'product'=> $productId,
+				'result' => $result,
+			], 'event_sync_product');
+		}
+		echo 'OK';
+		exit;
+
 	case 'ONCRMDYNAMICITEMUPDATE':
 		$spaEntityTypeId = (int)($data['FIELDS']['ENTITY_TYPE_ID'] ?? 0);
 		$spaItemId       = (int)($data['FIELDS']['ID'] ?? 0);
