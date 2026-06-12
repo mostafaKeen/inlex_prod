@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/../crest.php';
 require_once __DIR__ . '/SpaSync.php';
 
 class ProductSyncService
