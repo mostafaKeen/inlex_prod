@@ -165,8 +165,27 @@ class ProductSyncService
 			}
 			$amount = $subtotals[$spaTypeId] ?? 0.0;
 			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
-			self::updateEntityField($entityTypeId, $entityId, $fieldCode, $value);
-			$actions[] = ['action' => 'updated_subtotal', 'field' => $fieldCode, 'spaType' => $spaTypeId, 'value' => $value];
+
+			$updateResult = CRest::call('crm.item.update', [
+				'entityTypeId'       => $entityTypeId,
+				'id'                 => $entityId,
+				'fields'             => [$fieldCode => $value],
+				'useOriginalUfNames' => 'Y',
+			]);
+			CRest::setLog([
+				'field'    => $fieldCode,
+				'spaType'  => $spaTypeId,
+				'sentValue'=> $value,
+				'response' => $updateResult,
+			], 'subtotal_update_debug');
+
+			$actions[] = [
+				'action'   => 'updated_subtotal',
+				'field'    => $fieldCode,
+				'spaType'  => $spaTypeId,
+				'value'    => $value,
+				'apiError' => $updateResult['error'] ?? null,
+			];
 		}
 
 		// Link SPA items to entity fee fields
