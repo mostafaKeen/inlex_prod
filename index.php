@@ -982,17 +982,24 @@ var FeeSyncWidget = (function () {
 				var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
 				var optId = getPropValue(p, 'PROPERTY_119');
 				var optLabel = PROP_OPTIONS[optId] || '—';
-				var isSel = !!selected[pid];
+				// Check if this product ID is already in the main rows list
+				var isAlreadyAdded = state.rows.some(function (r) {
+					return String(r.productId) === pid;
+				});
 
 				var tr2 = document.createElement('tr');
-				tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;transition:background 0.1s;' + (isSel ? 'background:#f0f8ff;' : '');
+				if (isAlreadyAdded) {
+					tr2.style.cssText = 'border-bottom:1px solid #eef2f4;background:#f5f7f8;opacity:0.6;cursor:not-allowed;';
+				} else {
+					tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;transition:background 0.1s;' + (isSel ? 'background:#f0f8ff;' : '');
+				}
 
 				var optBadge = optId === '237'
 					? '<span class="option-badge option-badge-2">Opt 2</span>'
 					: (optId === '235' ? '<span class="option-badge option-badge-1">Opt 1</span>' : '<span style="color:#a8adb2">—</span>');
 
 				tr2.innerHTML = [
-					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + '></td>',
+					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + (isAlreadyAdded ? ' disabled' : '') + '></td>',
 					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
 					'<td style="padding:8px 10px">' + optBadge + '</td>',
@@ -1000,17 +1007,19 @@ var FeeSyncWidget = (function () {
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
 				].join('');
 
-				var cb = tr2.querySelector('input[type=checkbox]');
-				cb.addEventListener('change', function (e) {
-					if (e.target.checked) { selected[pid] = p; tr2.style.background = '#f0f8ff'; }
-					else { delete selected[pid]; tr2.style.background = ''; }
-					updateCount();
-				});
-				tr2.addEventListener('click', function (e) {
-					if (e.target.tagName === 'INPUT') return;
-					cb.checked = !cb.checked;
-					cb.dispatchEvent(new Event('change'));
-				});
+				if (!isAlreadyAdded) {
+					var cb = tr2.querySelector('input[type=checkbox]');
+					cb.addEventListener('change', function (e) {
+						if (e.target.checked) { selected[pid] = p; tr2.style.background = '#f0f8ff'; }
+						else { delete selected[pid]; tr2.style.background = ''; }
+						updateCount();
+					});
+					tr2.addEventListener('click', function (e) {
+						if (e.target.tagName === 'INPUT') return;
+						cb.checked = !cb.checked;
+						cb.dispatchEvent(new Event('change'));
+					});
+				}
 				tbody2.appendChild(tr2);
 			});
 		}
