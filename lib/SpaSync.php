@@ -4,49 +4,22 @@ require_once __DIR__ . '/../crest.php';
 require_once __DIR__ . '/FieldMapper.php';
 
 class EnumMapper {
-	private static $catalogProps = [];
-	private static $spaFields = [];
+	private static $directMaps = [
+		'ufCrm15_1779367955682' => [ '193' => '449', '195' => '451', '197' => '453', '199' => '455', '201' => '457', '203' => '459', '205' => '461' ],
+		'ufCrm17_1779370261982' => [ '193' => '501', '195' => '503', '197' => '505', '199' => '507', '201' => '509', '203' => '511', '205' => '513' ],
+		'ufCrm21_1781246319038' => [ '193' => '1467', '195' => '1469', '197' => '1471', '199' => '1473', '201' => '1475', '203' => '1477', '205' => '1479' ],
+		'ufCrm23_1781246045913' => [ '193' => '1419', '195' => '1421', '197' => '1423', '199' => '1425', '201' => '1427', '203' => '1429', '205' => '1431' ],
+		'ufCrm15_1779367818775' => [ '209' => '445', '207' => '447' ],
+		'ufCrm17_1779370162991' => [ '207' => '497', '209' => '499' ]
+	];
 
 	public static function map($catalogEnumId, $propCode, $spaFieldCode, $entityTypeId) {
 		if ($catalogEnumId === null || $catalogEnumId === '' || !$entityTypeId) {
 			return null;
 		}
-		// Extract property ID from property109
-		$propId = (int)str_replace('property', '', $propCode);
-		if ($propId <= 0) {
-			return null;
-		}
-
-		if (!isset(self::$catalogProps[$propId])) {
-			$res = CRest::call('catalog.productProperty.get', ['id' => $propId]);
-			self::$catalogProps[$propId] = $res['result']['productProperty'] ?? [];
-		}
-		$propMeta = self::$catalogProps[$propId];
-		$catalogText = '';
-		if (!empty($propMeta['values']) && is_array($propMeta['values'])) {
-			foreach ($propMeta['values'] as $val) {
-				if (strval($val['ID']) === strval($catalogEnumId)) {
-					$catalogText = $val['VALUE'];
-					break;
-				}
-			}
-		}
-
-		if ($catalogText === '') {
-			return null;
-		}
-
-		if (!isset(self::$spaFields[$entityTypeId])) {
-			$res = CRest::call('crm.item.fields', ['entityTypeId' => $entityTypeId]);
-			self::$spaFields[$entityTypeId] = $res['result']['fields'] ?? [];
-		}
-		$spaMeta = self::$spaFields[$entityTypeId][$spaFieldCode] ?? [];
-		if (!empty($spaMeta['items']) && is_array($spaMeta['items'])) {
-			foreach ($spaMeta['items'] as $item) {
-				if (strcasecmp(trim($item['VALUE']), trim($catalogText)) === 0) {
-					return $item['ID'];
-				}
-			}
+		$key = strval($catalogEnumId);
+		if (isset(self::$directMaps[$spaFieldCode][$key])) {
+			return self::$directMaps[$spaFieldCode][$key];
 		}
 		return null;
 	}
