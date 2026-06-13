@@ -7,6 +7,40 @@ class EnumMapper {
 	private static $catalogProps = [];
 	private static $spaFields = [];
 
+	private static function normalizeText($str) {
+		$normalized = preg_replace('/[^a-z0-9]/', '', strtolower($str));
+		$normalized = str_replace('visa', '', $normalized);
+		$normalized = str_replace('cost', '', $normalized);
+		$normalized = str_replace('fee', '', $normalized);
+		$normalized = str_replace('quaterly', 'quarterly', $normalized);
+		$normalized = str_replace('empoyment', 'employment', $normalized);
+		return $normalized;
+	}
+
+	public static function getCatalogEnumText($catalogEnumId, $propCode) {
+		if ($catalogEnumId === null || $catalogEnumId === '') {
+			return '';
+		}
+		$propId = (int)str_replace('property', '', $propCode);
+		if ($propId <= 0) {
+			return $catalogEnumId;
+		}
+
+		if (!isset(self::$catalogProps[$propId])) {
+			$res = CRest::call('catalog.productProperty.get', ['id' => $propId]);
+			self::$catalogProps[$propId] = $res['result']['productProperty'] ?? [];
+		}
+		$propMeta = self::$catalogProps[$propId];
+		if (!empty($propMeta['values']) && is_array($propMeta['values'])) {
+			foreach ($propMeta['values'] as $val) {
+				if (strval($val['ID']) === strval($catalogEnumId)) {
+					return $val['VALUE'];
+				}
+			}
+		}
+		return $catalogEnumId;
+	}
+
 	public static function map($catalogEnumId, $propCode, $spaFieldCode, $entityTypeId) {
 		if ($catalogEnumId === null || $catalogEnumId === '' || !$entityTypeId) {
 			return null;
@@ -43,7 +77,7 @@ class EnumMapper {
 		$spaMeta = self::$spaFields[$entityTypeId][$spaFieldCode] ?? [];
 		if (!empty($spaMeta['items']) && is_array($spaMeta['items'])) {
 			foreach ($spaMeta['items'] as $item) {
-				if (strcasecmp(trim($item['VALUE']), trim($catalogText)) === 0) {
+				if (self::normalizeText($item['VALUE']) === self::normalizeText($catalogText)) {
 					return $item['ID'];
 				}
 			}
@@ -99,15 +133,15 @@ class SpaSync
 			return null;
 		}
 		$normalized = mb_strtolower(trim($costType));
-		$isGov = str_contains($normalized, 'government') || $normalized === '207';
-		$isProf = str_contains($normalized, 'professional') || $normalized === '209';
+		$isGov = str_contains($normalized, 'government');
+		$isProf = str_contains($normalized, 'professional');
 
 		if (!$isGov && !$isProf) {
 			return null;
 		}
 
 		$optionId = $option !== null ? trim($option) : '';
-		$isOption2 = ($optionId === '237' || mb_strtolower($optionId) === 'option 2');
+		$isOption2 = (mb_strtolower($optionId) === 'option 2');
 
 		if ($isGov) {
 			return $isOption2 ? self::SPA_GOV_FEES_OPT2 : self::SPA_GOV_FEES_OPT1;
@@ -207,10 +241,17 @@ class SpaSync
 
 	public static function extractCatalogPropertyValue(array $catalogProduct, string $propCode)
 	{
-		if (!isset($catalogProduct[$propCode])) {
+		$key = $propCode;
+		if (!isset($catalogProduct[$key])) {
+			$key = strtoupper($propCode);
+		}
+		if (!isset($catalogProduct[$key])) {
+			$key = strtolower($propCode);
+		}
+		if (!isset($catalogProduct[$key])) {
 			return null;
 		}
-		$prop = $catalogProduct[$propCode];
+		$prop = $catalogProduct[$key];
 		if (is_array($prop)) {
 			if (isset($prop['value'])) {
 				return $prop['value'];
@@ -262,7 +303,8 @@ class SpaSync
 		if (!$propCode) {
 			return null;
 		}
-		return self::extractCatalogPropertyValue($catalogProduct, $propCode);
+		$valId = self::extractCatalogPropertyValue($catalogProduct, $propCode);
+		return $valId !== null ? EnumMapper::getCatalogEnumText($valId, $propCode) : null;
 	}
 
 	public static function getOptionFromProduct(?array $catalogProduct, array $productPropertyMap): ?string
@@ -274,7 +316,8 @@ class SpaSync
 		if (!$propCode) {
 			return null;
 		}
-		return self::extractCatalogPropertyValue($catalogProduct, $propCode);
+		$valId = self::extractCatalogPropertyValue($catalogProduct, $propCode);
+		return $valId !== null ? EnumMapper::getCatalogEnumText($valId, $propCode) : null;
 	}
 
 	public static function createSpaItem(int $entityTypeId, array $fields): ?int
