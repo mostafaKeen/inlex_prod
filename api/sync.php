@@ -7,6 +7,11 @@ header('Content-Type: application/json; charset=utf-8');
 
 $input = json_decode(file_get_contents('php://input'), true) ?: $_REQUEST;
 
+$auth = $input['auth'] ?? null;
+if (is_array($auth)) {
+	CRest::setAuth($auth);
+}
+
 $entityType = $input['entityType'] ?? null;
 $entityId   = isset($input['entityId']) ? (int)$input['entityId'] : 0;
 $action     = $input['action'] ?? 'sync';

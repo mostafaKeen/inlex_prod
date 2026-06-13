@@ -718,13 +718,15 @@ var FeeSyncWidget = (function () {
 
   function syncSpaItems(rows, cb) {
     log('Calling backend SPA Sync API...');
+    var authData = typeof BX24 !== 'undefined' ? BX24.getAuth() : null;
     fetch('api/sync.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         entityType: state.entityType,
         entityId: state.entityId,
-        action: 'sync'
+        action: 'sync',
+        auth: authData
       })
     })
     .then(function (res) { return res.json(); })

@@ -64,6 +64,31 @@ class CRest
 	}
 
 	/**
+	 * Dynamically set auth settings from frontend
+	 * @var $auth array
+	 * @return boolean
+	 */
+	public static function setAuth($auth)
+	{
+		if (is_array($auth) && !empty($auth['access_token']) && !empty($auth['domain']))
+		{
+			$settings = [
+				'access_token'    => $auth['access_token'],
+				'expires_in'      => $auth['expires_in'] ?? 3600,
+				'refresh_token'   => $auth['refresh_token'] ?? '',
+				'domain'          => $auth['domain'],
+				'client_endpoint' => 'https://' . $auth['domain'] . '/rest/',
+			];
+			if (!empty($auth['member_id'])) {
+				$settings['member_id'] = $auth['member_id'];
+			}
+			return static::setAppSettings($settings);
+		}
+		return false;
+	}
+
+
+	/**
 	 * @var $arParams array
 	 * $arParams = [
 	 *      'method'    => 'some rest method',
