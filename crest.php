@@ -83,12 +83,16 @@ class CRest
 	{
 		if (is_array($auth) && !empty($auth['access_token']) && !empty($auth['domain']))
 		{
+			$oldSettings = static::getSettingData();
+			$appToken = !empty($auth['application_token']) ? $auth['application_token'] : (!empty($oldSettings['application_token']) ? $oldSettings['application_token'] : 'dummy');
+
 			$settings = [
-				'access_token'    => $auth['access_token'],
-				'expires_in'      => $auth['expires_in'] ?? 3600,
-				'refresh_token'   => $auth['refresh_token'] ?? '',
-				'domain'          => $auth['domain'],
-				'client_endpoint' => 'https://' . $auth['domain'] . '/rest/',
+				'access_token'      => $auth['access_token'],
+				'expires_in'        => $auth['expires_in'] ?? 3600,
+				'refresh_token'     => $auth['refresh_token'] ?? '',
+				'domain'            => $auth['domain'],
+				'client_endpoint'   => 'https://' . $auth['domain'] . '/rest/',
+				'application_token' => $appToken,
 			];
 			if (!empty($auth['member_id'])) {
 				$settings['member_id'] = $auth['member_id'];

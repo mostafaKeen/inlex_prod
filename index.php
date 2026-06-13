@@ -1453,6 +1453,12 @@ var FeeSyncWidget = (function () {
 	function syncSpaItems(rows, cb) {
 		log('Calling backend SPA Sync API...');
 		var authData = typeof BX24 !== 'undefined' ? BX24.getAuth() : null;
+		if (authData) {
+			var appSid = new URLSearchParams(window.location.search).get('APP_SID');
+			if (appSid) {
+				authData.application_token = appSid;
+			}
+		}
 		var payload = {
 			entityType: state.entityType,
 			entityId: state.entityId,
