@@ -1,6 +1,17 @@
 <?php
 require_once (__DIR__.'/settings.php');
 
+class SyncLogger {
+	public static $logs = [];
+	public static function log($message, $data = null) {
+		self::$logs[] = [
+			'message' => $message,
+			'data' => $data
+		];
+	}
+}
+
+
 /**
  *  @version 1.36
  *  define:
@@ -109,6 +120,12 @@ class CRest
 		$arSettings = static::getAppSettings();
 		if($arSettings !== false)
 		{
+			SyncLogger::log("CRest::callCurl start: " . ($arParams['method'] ?? 'token'), [
+				'method' => $arParams['method'] ?? null,
+				'params' => $arParams['params'] ?? null,
+				'endpoint' => $arSettings['client_endpoint'] ?? null
+			]);
+
 			if(isset($arParams[ 'this_auth' ]) && $arParams[ 'this_auth' ] == 'Y')
 			{
 				$url = 'https://oauth.bitrix.info/oauth/token/';
@@ -201,6 +218,11 @@ class CRest
 					'callCurl'
 				);
 
+				SyncLogger::log("CRest::callCurl response: " . ($arParams['method'] ?? 'token'), [
+					'result' => $result,
+					'info' => $info ?? null
+				]);
+
 				return $result;
 			}
 			catch(Exception $e)
@@ -215,6 +237,11 @@ class CRest
 					'exceptionCurl'
 				);
 
+				SyncLogger::log("CRest::callCurl exception: " . ($arParams['method'] ?? 'token'), [
+					'message' => $e->getMessage(),
+					'code' => $e->getCode()
+				]);
+
 				return [
 					'error' => 'exception',
 					'error_exception_code' => $e->getCode(),
@@ -224,6 +251,7 @@ class CRest
 		}
 		else
 		{
+			SyncLogger::log("CRest::callCurl error: No settings found / App not installed");
 			static::setLog(
 				[
 					'params' => $arParams

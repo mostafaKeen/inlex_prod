@@ -1453,18 +1453,24 @@ var FeeSyncWidget = (function () {
 	function syncSpaItems(rows, cb) {
 		log('Calling backend SPA Sync API...');
 		var authData = typeof BX24 !== 'undefined' ? BX24.getAuth() : null;
+		var payload = {
+			entityType: state.entityType,
+			entityId: state.entityId,
+			action: 'sync',
+			auth: authData
+		};
+		console.log('[FeeSyncWidget] SPA Sync Request Payload:', payload);
 		fetch('api/sync.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				entityType: state.entityType,
-				entityId: state.entityId,
-				action: 'sync',
-				auth: authData
-			})
+			body: JSON.stringify(payload)
 		})
 		.then(function (res) { return res.json(); })
 		.then(function (data) {
+			console.log('[FeeSyncWidget] SPA Sync Response Data:', data);
+			if (data && data.debug_logs) {
+				console.log('[FeeSyncWidget] Backend Execution Logs:', data.debug_logs);
+			}
 			if (data && data.success) {
 				log('Backend SPA Sync completed successfully.');
 				if (cb) cb();
