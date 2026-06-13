@@ -50,8 +50,8 @@ class SpaSync
 			return null;
 		}
 		$normalized = mb_strtolower(trim($costType));
-		$isGov = str_contains($normalized, 'government');
-		$isProf = str_contains($normalized, 'professional');
+		$isGov = str_contains($normalized, 'government') || $normalized === '207';
+		$isProf = str_contains($normalized, 'professional') || $normalized === '209';
 
 		if (!$isGov && !$isProf) {
 			return null;
