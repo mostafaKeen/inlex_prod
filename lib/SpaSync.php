@@ -10,18 +10,60 @@ class EnumMapper {
 		'ufCrm21_1781246319038' => [ '193' => '1467', '195' => '1469', '197' => '1471', '199' => '1473', '201' => '1475', '203' => '1477', '205' => '1479' ],
 		'ufCrm23_1781246045913' => [ '193' => '1419', '195' => '1421', '197' => '1423', '199' => '1425', '201' => '1427', '203' => '1429', '205' => '1431' ],
 		'ufCrm15_1779367818775' => [ '209' => '445', '207' => '447' ],
-		'ufCrm17_1779370162991' => [ '207' => '497', '209' => '499' ]
+		'ufCrm17_1779370162991' => [ '207' => '497', '209' => '499' ],
+		'ufCrm21_1781246456038' => [ '1509' => '1509', '1511' => '1511', '1513' => '1513' ],
+		'ufCrm23_1781246158553' => [ '1447' => '1447', '1449' => '1449', '1451' => '1451' ],
 	];
 
 	public static function map($catalogEnumId, $propCode, $spaFieldCode, $entityTypeId) {
 		if ($catalogEnumId === null || $catalogEnumId === '' || !$entityTypeId) {
+			CRest::setLog([
+				'error' => 'Invalid input to EnumMapper::map',
+				'catalogEnumId' => $catalogEnumId,
+				'propCode' => $propCode,
+				'spaFieldCode' => $spaFieldCode,
+				'entityTypeId' => $entityTypeId,
+			], 'enum_mapper_invalid_input');
 			return null;
 		}
+
 		$key = strval($catalogEnumId);
-		if (isset(self::$directMaps[$spaFieldCode][$key])) {
-			return self::$directMaps[$spaFieldCode][$key];
+		
+		if (!isset(self::$directMaps[$spaFieldCode])) {
+			CRest::setLog([
+				'warning' => 'SPA field code not found in enum maps',
+				'spaFieldCode' => $spaFieldCode,
+				'catalogEnumId' => $catalogEnumId,
+				'availableFields' => array_keys(self::$directMaps),
+			], 'enum_mapper_field_not_found');
+			return null;
 		}
+
+		if (isset(self::$directMaps[$spaFieldCode][$key])) {
+			$mapped = self::$directMaps[$spaFieldCode][$key];
+			CRest::setLog([
+				'info' => 'Enum mapped successfully',
+				'catalogId' => $catalogEnumId,
+				'spaId' => $mapped,
+				'spaFieldCode' => $spaFieldCode,
+			], 'enum_mapper_success');
+			return $mapped;
+		}
+
+		CRest::setLog([
+			'warning' => 'No mapping found for enum ID in SPA field',
+			'spaFieldCode' => $spaFieldCode,
+			'catalogEnumId' => $catalogEnumId,
+			'availableMappings' => array_keys(self::$directMaps[$spaFieldCode]),
+		], 'enum_mapper_no_mapping');
 		return null;
+	}
+
+	/**
+	 * Get all available enum mappings for a SPA field code
+	 */
+	public static function getFieldMappings($spaFieldCode) {
+		return self::$directMaps[$spaFieldCode] ?? [];
 	}
 }
 
@@ -61,6 +103,16 @@ class SpaSync
 		'Visa Type'                 => ['Visa Type'],
 		'Visa Status'               => ['Visa Status'],
 		'Company Application Type'  => ['Company Application Type'],
+	];
+
+	/**
+	 * Map SPA entity type ID to field code for payment syncing
+	 */
+	const PAYMENT_FIELD_CODES = [
+		1058 => 'ufCrm15_1779367955682',  // Professional Fees Option 1
+		1062 => 'ufCrm17_1779370261982',  // Government Fees Option 1
+		1070 => 'ufCrm21_1781246319038',  // Professional Fees Option 2
+		1074 => 'ufCrm23_1781246045913',  // Government Fees Option 2
 	];
 
 	/**
@@ -138,6 +190,13 @@ class SpaSync
 	): array {
 		$fields = [];
 
+		CRest::setLog([
+			'event' => 'buildSpaFields_start',
+			'entityTypeId' => $entityTypeId,
+			'productRow' => $productRow,
+			'hasCatalogProduct' => !empty($catalogProduct),
+		], 'spa_build_fields_debug');
+
 		$titleField = FieldMapper::resolveSpaField($spaFieldMap, ['title', 'name']);
 		$fields[$titleField ?: 'title'] = $productRow['productName'] ?? '';
 
@@ -161,19 +220,55 @@ class SpaSync
 			foreach (self::FIELD_SYNC_MAP as $productPropLabel => $spaLabels) {
 				$propCode = $productPropertyMap[mb_strtolower($productPropLabel)] ?? null;
 				if (!$propCode) {
+					CRest::setLog([
+						'warning' => 'Product property not found',
+						'propertyLabel' => $productPropLabel,
+						'availableProperties' => array_keys($productPropertyMap),
+					], 'spa_property_not_found');
 					continue;
 				}
+
 				$value = self::extractCatalogPropertyValue($catalogProduct, $propCode);
-				if ($value === null) {
+				if ($value === null || $value === '') {
+					CRest::setLog([
+						'info' => 'Property value is empty',
+						'propertyLabel' => $productPropLabel,
+						'propCode' => $propCode,
+					], 'spa_property_empty');
 					continue;
 				}
+
 				$spaField = FieldMapper::resolveSpaField($spaFieldMap, $spaLabels);
 				if ($spaField) {
 					$mappedValue = EnumMapper::map($value, $propCode, $spaField, $entityTypeId);
-					$fields[$spaField] = ($mappedValue !== null) ? $mappedValue : $value;
+					
+					if ($mappedValue !== null) {
+						$fields[$spaField] = $mappedValue;
+						CRest::setLog([
+							'success' => 'Field mapped',
+							'propertyLabel' => $productPropLabel,
+							'catalogValue' => $value,
+							'spaValue' => $mappedValue,
+							'spaField' => $spaField,
+						], 'spa_field_mapped');
+					} else {
+						// Use original value if mapping fails (for non-enum or unmapped values)
+						$fields[$spaField] = $value;
+						CRest::setLog([
+							'warning' => 'Enum mapping failed, using original value',
+							'propertyLabel' => $productPropLabel,
+							'catalogValue' => $value,
+							'spaField' => $spaField,
+						], 'spa_field_unmapped_fallback');
+					}
 				}
 			}
 		}
+
+		CRest::setLog([
+			'event' => 'buildSpaFields_complete',
+			'finalFields' => $fields,
+		], 'spa_build_fields_debug');
 
 		return $fields;
 	}
@@ -190,6 +285,9 @@ class SpaSync
 			}
 			if (isset($prop[0]['value'])) {
 				return $prop[0]['value'];
+			}
+			if (isset($prop[0])) {
+				return $prop[0];
 			}
 		}
 		return $prop;
@@ -211,6 +309,13 @@ class SpaSync
 				$map[mb_strtolower(trim($prop['name']))] = $code;
 			}
 		}
+
+		CRest::setLog([
+			'event' => 'product_property_map_discovered',
+			'count' => count($map),
+			'map' => $map,
+		], 'property_discovery_debug');
+
 		return $map;
 	}
 
@@ -221,6 +326,11 @@ class SpaSync
 		}
 		$result = CRest::call('catalog.product.get', ['id' => $productId]);
 		if (!empty($result['error']) || empty($result['result']['product'])) {
+			CRest::setLog([
+				'error' => 'Failed to get catalog product',
+				'productId' => $productId,
+				'apiError' => $result['error'] ?? null,
+			], 'catalog_product_fetch_error');
 			return null;
 		}
 		return $result['result']['product'];
@@ -252,43 +362,114 @@ class SpaSync
 
 	public static function createSpaItem(int $entityTypeId, array $fields): ?int
 	{
+		CRest::setLog([
+			'event' => 'spa_item_create_start',
+			'entityTypeId' => $entityTypeId,
+			'fields' => $fields,
+		], 'spa_item_lifecycle');
+
 		$result = CRest::call('crm.item.add', [
 			'entityTypeId'       => $entityTypeId,
 			'fields'             => $fields,
 			'useOriginalUfNames' => 'Y',
 		]);
-		if (!empty($result['error']) || empty($result['result']['item']['id'])) {
-			CRest::setLog($result, 'spa_create_error');
+
+		if (!empty($result['error'])) {
+			CRest::setLog([
+				'event' => 'spa_item_create_error',
+				'entityTypeId' => $entityTypeId,
+				'error' => $result['error'],
+				'errorDescription' => $result['error_description'] ?? null,
+				'sentFields' => $fields,
+				'apiResponse' => $result,
+			], 'spa_create_error');
 			return null;
 		}
-		return (int)$result['result']['item']['id'];
+
+		if (empty($result['result']['item']['id'])) {
+			CRest::setLog([
+				'error' => 'SPA item created but no ID returned',
+				'result' => $result,
+			], 'spa_create_error');
+			return null;
+		}
+
+		$itemId = (int)$result['result']['item']['id'];
+		CRest::setLog([
+			'event' => 'spa_item_created',
+			'entityTypeId' => $entityTypeId,
+			'itemId' => $itemId,
+		], 'spa_item_lifecycle');
+
+		return $itemId;
 	}
 
 	public static function updateSpaItem(int $entityTypeId, int $itemId, array $fields): bool
 	{
+		CRest::setLog([
+			'event' => 'spa_item_update_start',
+			'entityTypeId' => $entityTypeId,
+			'itemId' => $itemId,
+			'fields' => $fields,
+		], 'spa_item_lifecycle');
+
 		$result = CRest::call('crm.item.update', [
 			'entityTypeId'       => $entityTypeId,
 			'id'                 => $itemId,
 			'fields'             => $fields,
 			'useOriginalUfNames' => 'Y',
 		]);
+
 		if (!empty($result['error'])) {
-			CRest::setLog($result, 'spa_update_error');
+			CRest::setLog([
+				'event' => 'spa_item_update_error',
+				'entityTypeId' => $entityTypeId,
+				'itemId' => $itemId,
+				'error' => $result['error'],
+				'errorDescription' => $result['error_description'] ?? null,
+				'sentFields' => $fields,
+			], 'spa_update_error');
 			return false;
 		}
+
+		CRest::setLog([
+			'event' => 'spa_item_updated',
+			'entityTypeId' => $entityTypeId,
+			'itemId' => $itemId,
+		], 'spa_item_lifecycle');
+
 		return true;
 	}
 
 	public static function deleteSpaItem(int $entityTypeId, int $itemId): bool
 	{
+		CRest::setLog([
+			'event' => 'spa_item_delete_start',
+			'entityTypeId' => $entityTypeId,
+			'itemId' => $itemId,
+		], 'spa_item_lifecycle');
+
 		$result = CRest::call('crm.item.delete', [
 			'entityTypeId' => $entityTypeId,
 			'id'           => $itemId,
 		]);
+
 		if (!empty($result['error'])) {
-			CRest::setLog($result, 'spa_delete_error');
+			CRest::setLog([
+				'event' => 'spa_item_delete_error',
+				'entityTypeId' => $entityTypeId,
+				'itemId' => $itemId,
+				'error' => $result['error'],
+			], 'spa_delete_error');
 			return false;
 		}
+
+		CRest::setLog([
+			'event' => 'spa_item_deleted',
+			'entityTypeId' => $entityTypeId,
+			'itemId' => $itemId,
+		], 'spa_item_lifecycle');
+
 		return true;
 	}
 

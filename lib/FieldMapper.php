@@ -24,10 +24,23 @@ class FieldMapper
 			]);
 			foreach ($labels as $fieldLabel) {
 				if (strcasecmp(trim($fieldLabel), trim($label)) === 0) {
+					CRest::setLog([
+						'success' => 'Field found by label',
+						'searchLabel' => $label,
+						'foundCode' => $code,
+						'matchedLabel' => $fieldLabel,
+					], 'field_discovery');
 					return $code;
 				}
 			}
 		}
+
+		CRest::setLog([
+			'warning' => 'Field not found by label',
+			'searchLabel' => $label,
+			'availableFields' => array_keys($fields),
+		], 'field_discovery');
+
 		return null;
 	}
 
@@ -42,12 +55,27 @@ class FieldMapper
 		$result = CRest::call($method);
 
 		if (!empty($result['error']) || empty($result['result'])) {
+			CRest::setLog([
+				'error' => 'Failed to discover fee link fields',
+				'entityType' => $entityType,
+				'apiError' => $result['error'] ?? null,
+			], 'fee_field_discovery_error');
 			return ['professional' => null, 'government' => null];
 		}
 
+		$professional = self::findFieldByLabel($result['result'], self::FEE_FIELD_LABELS['professional']);
+		$government = self::findFieldByLabel($result['result'], self::FEE_FIELD_LABELS['government']);
+
+		CRest::setLog([
+			'event' => 'fee_link_fields_discovered',
+			'entityType' => $entityType,
+			'professional' => $professional,
+			'government' => $government,
+		], 'fee_field_discovery');
+
 		return [
-			'professional' => self::findFieldByLabel($result['result'], self::FEE_FIELD_LABELS['professional']),
-			'government'   => self::findFieldByLabel($result['result'], self::FEE_FIELD_LABELS['government']),
+			'professional' => $professional,
+			'government' => $government,
 		];
 	}
 
@@ -62,6 +90,11 @@ class FieldMapper
 		]);
 
 		if (!empty($result['error']) || empty($result['result']['fields'])) {
+			CRest::setLog([
+				'error' => 'Failed to build SPA field map',
+				'entityTypeId' => $entityTypeId,
+				'apiError' => $result['error'] ?? null,
+			], 'spa_field_map_error');
 			return [];
 		}
 
@@ -76,9 +109,18 @@ class FieldMapper
 				$meta['formLabel'] ?? null,
 			]);
 			foreach ($labels as $label) {
-				$map[mb_strtolower(trim($label))] = $code;
+				$lowerLabel = mb_strtolower(trim($label));
+				$map[$lowerLabel] = $code;
 			}
 		}
+
+		CRest::setLog([
+			'event' => 'spa_field_map_built',
+			'entityTypeId' => $entityTypeId,
+			'fieldCount' => count($map),
+			'fieldMap' => $map,
+		], 'spa_field_map_debug');
+
 		return $map;
 	}
 
@@ -90,9 +132,21 @@ class FieldMapper
 		foreach ($labels as $label) {
 			$key = mb_strtolower(trim($label));
 			if (isset($spaFieldMap[$key])) {
+				CRest::setLog([
+					'success' => 'SPA field resolved',
+					'searchLabel' => $label,
+					'resolvedCode' => $spaFieldMap[$key],
+				], 'spa_field_resolution');
 				return $spaFieldMap[$key];
 			}
 		}
+
+		CRest::setLog([
+			'warning' => 'SPA field not resolved',
+			'searchLabels' => $labels,
+			'availableFields' => array_keys($spaFieldMap),
+		], 'spa_field_resolution');
+
 		return null;
 	}
 }

@@ -37,6 +37,12 @@ class ProductSyncService
 	 */
 	public static function syncEntity(string $entityType, int $entityId): array
 	{
+		CRest::setLog([
+			'event' => 'sync_entity_start',
+			'entityType' => $entityType,
+			'entityId' => $entityId,
+		], 'sync_entity_lifecycle');
+
 		$entityTypeId = self::ENTITY_TYPE_MAP[$entityType] ?? null;
 		if (!$entityTypeId) {
 			return ['success' => false, 'actions' => [], 'errors' => ['Unknown entity type']];
@@ -58,8 +64,24 @@ class ProductSyncService
 			1074 => FieldMapper::buildSpaFieldMap(1074),
 		];
 
+		CRest::setLog([
+			'event' => 'field_maps_prepared',
+			'productPropertyMapCount' => count($productPropertyMap),
+			'spaFieldMapCounts' => [
+				1058 => count($spaFieldMaps[1058] ?? []),
+				1062 => count($spaFieldMaps[1062] ?? []),
+				1070 => count($spaFieldMaps[1070] ?? []),
+				1074 => count($spaFieldMaps[1074] ?? []),
+			],
+		], 'sync_entity_debug');
+
 		$ownerType = self::OWNER_TYPE_MAP[$entityTypeId];
 		$productRows = self::getProductRows($ownerType, $entityId);
+
+		CRest::setLog([
+			'event' => 'product_rows_fetched',
+			'count' => count($productRows),
+		], 'sync_entity_debug');
 
 		$entity = self::getClassicEntity($entityType, $entityId);
 		if (!$entity) {
@@ -70,6 +92,11 @@ class ProductSyncService
 		foreach ($feeFields as $spaTypeId => $fieldCode) {
 			$linkedSpaIds[$spaTypeId] = SpaSync::normalizeLinkedIds($entity[$fieldCode] ?? null);
 		}
+
+		CRest::setLog([
+			'event' => 'linked_spa_ids_extracted',
+			'linkedSpaIds' => $linkedSpaIds,
+		], 'sync_entity_debug');
 
 		$processedSpaIds = [
 			1058 => [],
@@ -92,19 +119,47 @@ class ProductSyncService
 				continue;
 			}
 
+			CRest::setLog([
+				'event' => 'processing_product_row',
+				'productName' => $productName,
+				'productId' => $productId,
+			], 'product_row_processing');
+
 			$catalogProduct = SpaSync::getCatalogProduct($productId);
 			$costType = SpaSync::getCostTypeFromProduct($catalogProduct, $productPropertyMap);
 			$option = SpaSync::getOptionFromProduct($catalogProduct, $productPropertyMap);
 			$spaEntityTypeId = SpaSync::resolveSpaEntityTypeId($costType, $option);
 
+			CRest::setLog([
+				'event' => 'product_analyzed',
+				'productName' => $productName,
+				'costType' => $costType,
+				'option' => $option,
+				'spaEntityTypeId' => $spaEntityTypeId,
+			], 'product_row_processing');
+
 			if (!$spaEntityTypeId) {
 				$errors[] = "Product \"{$productName}\": could not determine fee type from cost type \"{$costType}\" and option \"{$option}\"";
+				CRest::setLog([
+					'error' => 'Could not resolve SPA entity type',
+					'productName' => $productName,
+					'costType' => $costType,
+					'option' => $option,
+				], 'spa_type_resolution_error');
 				continue;
 			}
 
 			$externalId = "{$entityType}_{$entityId}_{$productId}";
 			$spaFieldMap = $spaFieldMaps[$spaEntityTypeId];
 			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap, $externalId, $spaEntityTypeId);
+
+			CRest::setLog([
+				'event' => 'spa_fields_built',
+				'productName' => $productName,
+				'spaEntityTypeId' => $spaEntityTypeId,
+				'fieldCount' => count($spaFields),
+				'fields' => $spaFields,
+			], 'spa_field_building');
 
 			// Accumulate sub-total for this fee type/option based on row price x quantity
 			$rowPrice = (float)($row['price'] ?? 0);
@@ -130,6 +185,12 @@ class ProductSyncService
 					SpaSync::updateSpaItem($spaEntityTypeId, $existingId, $spaFields);
 					$actions[] = ['action' => 'updated', 'spaType' => $spaEntityTypeId, 'spaId' => $existingId, 'product' => $productName];
 					$processedSpaIds[$spaEntityTypeId][] = $existingId;
+					CRest::setLog([
+						'action' => 'updated',
+						'spaType' => $spaEntityTypeId,
+						'spaId' => $existingId,
+						'productName' => $productName,
+					], 'spa_item_action');
 				} else {
 					// Different type: delete old, create new
 					SpaSync::deleteSpaItem($existingSpaTypeId, $existingId);
@@ -138,20 +199,43 @@ class ProductSyncService
 					$spaItemId = SpaSync::createSpaItem($spaEntityTypeId, $spaFields);
 					if (!$spaItemId) {
 						$errors[] = "Failed to recreate SPA item for product \"{$productName}\" after type change";
+						CRest::setLog([
+							'error' => 'Failed to recreate SPA item',
+							'productName' => $productName,
+							'oldType' => $existingSpaTypeId,
+							'newType' => $spaEntityTypeId,
+						], 'spa_create_error');
 						continue;
 					}
 					$actions[] = ['action' => 'created_new_for_type_change', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
 					$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
+					CRest::setLog([
+						'action' => 'created_new_for_type_change',
+						'spaType' => $spaEntityTypeId,
+						'spaId' => $spaItemId,
+						'productName' => $productName,
+					], 'spa_item_action');
 				}
 			} else {
 				// No existing item: create new
 				$spaItemId = SpaSync::createSpaItem($spaEntityTypeId, $spaFields);
 				if (!$spaItemId) {
 					$errors[] = "Failed to create SPA item for product \"{$productName}\"";
+					CRest::setLog([
+						'error' => 'Failed to create SPA item',
+						'productName' => $productName,
+						'spaEntityTypeId' => $spaEntityTypeId,
+					], 'spa_create_error');
 					continue;
 				}
 				$actions[] = ['action' => 'created', 'spaType' => $spaEntityTypeId, 'spaId' => $spaItemId, 'product' => $productName];
 				$processedSpaIds[$spaEntityTypeId][] = $spaItemId;
+				CRest::setLog([
+					'action' => 'created',
+					'spaType' => $spaEntityTypeId,
+					'spaId' => $spaItemId,
+					'productName' => $productName,
+				], 'spa_item_action');
 			}
 		}
 
@@ -194,6 +278,15 @@ class ProductSyncService
 			$newIds = array_values(array_unique($processedSpaIds[$spaTypeId] ?? []));
 			$currentIds = $linkedSpaIds[$spaTypeId] ?? [];
 
+			CRest::setLog([
+				'event' => 'linking_spa_items',
+				'spaTypeId' => $spaTypeId,
+				'fieldCode' => $fieldCode,
+				'newIds' => $newIds,
+				'currentIds' => $currentIds,
+				'hasChanges' => $newIds !== $currentIds,
+			], 'spa_linking_debug');
+
 			if ($newIds !== $currentIds) {
 				self::updateClassicEntityField($entityType, $entityId, $fieldCode, $newIds);
 				$actions[] = ['action' => 'linked', 'field' => $fieldCode, 'ids' => $newIds];
@@ -204,6 +297,11 @@ class ProductSyncService
 			foreach ($orphaned as $orphanId) {
 				SpaSync::deleteSpaItem($spaTypeId, $orphanId);
 				$actions[] = ['action' => 'deleted_orphan', 'spaType' => $spaTypeId, 'spaId' => $orphanId];
+				CRest::setLog([
+					'action' => 'deleted_orphan',
+					'spaType' => $spaTypeId,
+					'spaId' => $orphanId,
+				], 'spa_item_action');
 			}
 		}
 
@@ -211,6 +309,15 @@ class ProductSyncService
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
 		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
 		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+
+		CRest::setLog([
+			'event' => 'sync_entity_complete',
+			'entityType' => $entityType,
+			'entityId' => $entityId,
+			'actionCount' => count($actions),
+			'errorCount' => count($errors),
+			'success' => empty($errors),
+		], 'sync_entity_lifecycle');
 
 		return [
 			'success' => empty($errors),
