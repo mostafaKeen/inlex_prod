@@ -982,6 +982,8 @@ var FeeSyncWidget = (function () {
 				var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
 				var optId = getPropValue(p, 'PROPERTY_119');
 				var optLabel = PROP_OPTIONS[optId] || '—';
+				var isSel = !!selected[pid];
+
 				// Check if this product ID is already in the main rows list
 				var isAlreadyAdded = state.rows.some(function (r) {
 					return String(r.productId) === pid;
@@ -1000,7 +1002,7 @@ var FeeSyncWidget = (function () {
 
 				tr2.innerHTML = [
 					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + (isAlreadyAdded ? ' disabled' : '') + '></td>',
-					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + '</td>',
+					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + (isAlreadyAdded ? ' <span style="font-weight:400;color:#a8adb2;font-size:11px">(already added)</span>' : '') + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
 					'<td style="padding:8px 10px">' + optBadge + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
@@ -1046,6 +1048,8 @@ var FeeSyncWidget = (function () {
 
 		document.getElementById('picker-add-selected').addEventListener('click', function () {
 			Object.values(selected).forEach(function (p) {
+				var pidCheck = String(p.ID || p.id);
+				if (state.rows.some(function (r) { return String(r.productId) === pidCheck; })) return;
 				var toc = getPropValue(p, 'PROPERTY_111');
 				var pay = getPropValue(p, 'PROPERTY_109');
 				var opt = getPropValue(p, 'PROPERTY_119');
