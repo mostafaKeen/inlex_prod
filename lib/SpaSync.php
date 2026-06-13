@@ -3,6 +3,55 @@
 require_once __DIR__ . '/../crest.php';
 require_once __DIR__ . '/FieldMapper.php';
 
+class EnumMapper {
+	private static $catalogProps = [];
+	private static $spaFields = [];
+
+	public static function map($catalogEnumId, $propCode, $spaFieldCode, $entityTypeId) {
+		if ($catalogEnumId === null || $catalogEnumId === '' || !$entityTypeId) {
+			return null;
+		}
+		// Extract property ID from property109
+		$propId = (int)str_replace('property', '', $propCode);
+		if ($propId <= 0) {
+			return null;
+		}
+
+		if (!isset(self::$catalogProps[$propId])) {
+			$res = CRest::call('catalog.productProperty.get', ['id' => $propId]);
+			self::$catalogProps[$propId] = $res['result']['productProperty'] ?? [];
+		}
+		$propMeta = self::$catalogProps[$propId];
+		$catalogText = '';
+		if (!empty($propMeta['values']) && is_array($propMeta['values'])) {
+			foreach ($propMeta['values'] as $val) {
+				if (strval($val['ID']) === strval($catalogEnumId)) {
+					$catalogText = $val['VALUE'];
+					break;
+				}
+			}
+		}
+
+		if ($catalogText === '') {
+			return null;
+		}
+
+		if (!isset(self::$spaFields[$entityTypeId])) {
+			$res = CRest::call('crm.item.fields', ['entityTypeId' => $entityTypeId]);
+			self::$spaFields[$entityTypeId] = $res['result']['fields'] ?? [];
+		}
+		$spaMeta = self::$spaFields[$entityTypeId][$spaFieldCode] ?? [];
+		if (!empty($spaMeta['items']) && is_array($spaMeta['items'])) {
+			foreach ($spaMeta['items'] as $item) {
+				if (strcasecmp(trim($item['VALUE']), trim($catalogText)) === 0) {
+					return $item['ID'];
+				}
+			}
+		}
+		return null;
+	}
+}
+
 class SpaSync
 {
 	const SPA_PROF_FEES_OPT1 = 1058;
@@ -35,7 +84,7 @@ class SpaSync
 	/** Product property label → SPA field labels */
 	const FIELD_SYNC_MAP = [
 		'Type of Cost'              => ['Cost Type', 'Type of Cost'],
-		'Payments'                  => ['Payment Type', 'Payments'],
+		'Payments old'              => ['Payment Type', 'Payments'],
 		'Visa Type'                 => ['Visa Type'],
 		'Visa Status'               => ['Visa Status'],
 		'Company Application Type'  => ['Company Application Type'],
@@ -111,7 +160,8 @@ class SpaSync
 		?array $catalogProduct,
 		array $productPropertyMap,
 		array $spaFieldMap,
-		?string $xmlId = null
+		?string $xmlId = null,
+		?int $entityTypeId = null
 	): array {
 		$fields = [];
 
@@ -146,7 +196,8 @@ class SpaSync
 				}
 				$spaField = FieldMapper::resolveSpaField($spaFieldMap, $spaLabels);
 				if ($spaField) {
-					$fields[$spaField] = $value;
+					$mappedValue = EnumMapper::map($value, $propCode, $spaField, $entityTypeId);
+					$fields[$spaField] = ($mappedValue !== null) ? $mappedValue : $value;
 				}
 			}
 		}

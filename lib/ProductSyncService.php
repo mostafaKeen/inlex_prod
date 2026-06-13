@@ -104,7 +104,7 @@ class ProductSyncService
 
 			$externalId = "{$entityType}_{$entityId}_{$productId}";
 			$spaFieldMap = $spaFieldMaps[$spaEntityTypeId];
-			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap, $externalId);
+			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap, $externalId, $spaEntityTypeId);
 
 			// Accumulate sub-total for this fee type/option based on row price x quantity
 			$rowPrice = (float)($row['price'] ?? 0);
