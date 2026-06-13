@@ -502,21 +502,27 @@ var FeeSyncWidget = (function () {
         var toc   = PROP_TYPE_OF_COST[getPropValue(p, 'PROPERTY_111')] || '—';
         var pay   = PROP_PAYMENTS[getPropValue(p, 'PROPERTY_109')]     || '—';
 
-        var alreadyAdded = state.rows.some(function (r) { return String(r.productId) === pid; });
+        // Check if this product ID is already in the main rows list
+        var isAlreadyAdded = state.rows.some(function (r) {
+          return String(r.productId) === pid;
+        });
 
         var tr2 = document.createElement('tr');
-        tr2.style.cssText = 'border-bottom:1px solid #eef2f4;' +
-          (alreadyAdded ? 'cursor:not-allowed;opacity:0.5;' : 'cursor:pointer;') +
-          (selected[pid] ? 'background:#f0f8ff;' : '');
+        if (isAlreadyAdded) {
+          tr2.style.cssText = 'border-bottom:1px solid #eef2f4;background:#f5f7f8;opacity:0.6;cursor:not-allowed;';
+        } else {
+          tr2.style.cssText = 'border-bottom:1px solid #eef2f4;cursor:pointer;' + (selected[pid] ? 'background:#f0f8ff;' : '');
+        }
+
         tr2.innerHTML = [
-          '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (selected[pid] ? 'checked' : '') + (alreadyAdded ? ' disabled' : '') + ' data-pid="' + pid + '"></td>',
-          '<td style="padding:8px 10px;font-weight:600;color:#333">'  + escHtml(pname) + (alreadyAdded ? ' <span style="font-weight:400;color:#a8adb2;font-size:11px">(already added)</span>' : '') + '</td>',
+          '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (selected[pid] ? 'checked' : '') + (isAlreadyAdded ? ' disabled' : '') + ' data-pid="' + pid + '"></td>',
+          '<td style="padding:8px 10px;font-weight:600;color:#333">'  + escHtml(pname) + '</td>',
           '<td style="padding:8px 10px;color:#535c69">Dh ' + price    + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
         ].join('');
 
-        if (!alreadyAdded) {
+        if (!isAlreadyAdded) {
           tr2.querySelector('input[type=checkbox]').addEventListener('change', function (e) {
             if (e.target.checked) { selected[pid] = p; tr2.style.background = '#f0f8ff'; }
             else { delete selected[pid]; tr2.style.background = ''; }
@@ -541,8 +547,6 @@ var FeeSyncWidget = (function () {
 
     document.getElementById('picker-add-selected').addEventListener('click', function () {
       Object.values(selected).forEach(function (p) {
-        var pid = String(p.ID || p.id);
-        if (state.rows.some(function (r) { return String(r.productId) === pid; })) return;
         var row = {
           id: state.nextRowId++, productId: String(p.ID || p.id),
           name:  p.NAME || p.name || '',
