@@ -96,6 +96,18 @@ class SpaSync
 		],
 	];
 
+	/** Total field codes per entity type, keyed by Option 1 and Option 2 */
+	const TOTAL_FIELD_MAPS = [
+		'deal' => [
+			'option1' => 'UF_CRM_6A2FE9D5116B2', // Option 1 - Total
+			'option2' => 'UF_CRM_6A2FE9D53394C', // Option 2 - Total
+		],
+		'lead' => [
+			'option1' => 'UF_CRM_1781524857503', // Option 1 - Total
+			'option2' => 'UF_CRM_1781524864424', // Option 2 - Total
+		],
+	];
+
 	/** Product property label → SPA field labels */
 	const FIELD_SYNC_MAP = [
 		'Type of Cost'              => ['Cost Type', 'Type of Cost'],

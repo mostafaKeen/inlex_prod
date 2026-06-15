@@ -270,6 +270,38 @@ class ProductSyncService
 			];
 		}
 
+		// Update Option Total fields (Option 1 = SPA 1058 + SPA 1062, Option 2 = SPA 1070 + SPA 1074)
+		$totalFields = SpaSync::TOTAL_FIELD_MAPS[$entityType] ?? [];
+		$optionTotals = [
+			'option1' => ($subtotals[1058] ?? 0.0) + ($subtotals[1062] ?? 0.0),
+			'option2' => ($subtotals[1070] ?? 0.0) + ($subtotals[1074] ?? 0.0),
+		];
+		foreach ($totalFields as $optionKey => $fieldCode) {
+			if (!$fieldCode) {
+				continue;
+			}
+			$amount = $optionTotals[$optionKey] ?? 0.0;
+			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
+
+			$updateResult = $entityType === 'lead'
+				? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+				: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			CRest::setLog([
+				'field'    => $fieldCode,
+				'option'   => $optionKey,
+				'sentValue'=> $value,
+				'response' => $updateResult,
+			], 'option_total_update_debug');
+
+			$actions[] = [
+				'action'   => 'updated_option_total',
+				'field'    => $fieldCode,
+				'option'   => $optionKey,
+				'value'    => $value,
+				'apiError' => $updateResult['error'] ?? null,
+			];
+		}
+
 		// Link SPA items to entity fee fields
 		foreach ($feeFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
