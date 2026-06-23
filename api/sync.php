@@ -79,6 +79,24 @@ if (!in_array($entityType, ['lead', 'deal'], true) || $entityId <= 0) {
 			], 'sync_api_actions');
 			break;
 
+		case 'clearAll':
+			CRest::setLog([
+				'event' => 'sync_api_action_clear_all_start',
+				'entityType' => $entityType,
+				'entityId' => $entityId,
+			], 'sync_api_actions');
+
+			$result = ProductSyncService::clearAllSpaItems($entityType, $entityId);
+
+			CRest::setLog([
+				'event' => 'sync_api_action_clear_all_complete',
+				'entityType' => $entityType,
+				'entityId' => $entityId,
+				'success' => $result['success'] ?? false,
+				'actionCount' => count($result['actions'] ?? []),
+			], 'sync_api_actions');
+			break;
+
 		case 'spa_to_product':
 			$spaEntityTypeId = isset($input['spaEntityTypeId']) ? (int)$input['spaEntityTypeId'] : 0;
 			$spaItemId       = isset($input['spaItemId']) ? (int)$input['spaItemId'] : 0;
@@ -118,7 +136,7 @@ if (!in_array($entityType, ['lead', 'deal'], true) || $entityId <= 0) {
 				'success' => false,
 				'error' => 'Unknown action',
 				'received_action' => $action,
-				'available_actions' => ['sync', 'spa_to_product'],
+				'available_actions' => ['sync', 'clearAll', 'spa_to_product'],
 			];
 			CRest::setLog($result, 'sync_api_unknown_action');
 	}

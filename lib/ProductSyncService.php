@@ -359,6 +359,102 @@ class ProductSyncService
 	}
 
 	/**
+	 * Delete ALL linked SPA items from a Lead or Deal, clear the fee link fields,
+	 * and zero out the subtotal / total fields.
+	 * Called when the user saves with zero products.
+	 */
+	public static function clearAllSpaItems(string $entityType, int $entityId): array
+	{
+		CRest::setLog([
+			'event' => 'clear_all_spa_start',
+			'entityType' => $entityType,
+			'entityId' => $entityId,
+		], 'clear_all_lifecycle');
+
+		$actions = [];
+		$errors  = [];
+
+		$feeFields = self::FEE_FIELD_MAPS[$entityType] ?? [];
+		if (empty($feeFields)) {
+			return ['success' => false, 'actions' => [], 'errors' => ['No fee field mappings for entity type']];
+		}
+
+		$entity = self::getClassicEntity($entityType, $entityId);
+		if (!$entity) {
+			return ['success' => false, 'actions' => [], 'errors' => ['Entity not found']];
+		}
+
+		// 1. Delete every linked SPA item and clear the link fields
+		foreach ($feeFields as $spaTypeId => $fieldCode) {
+			if (!$fieldCode) {
+				continue;
+			}
+			$linkedIds = SpaSync::normalizeLinkedIds($entity[$fieldCode] ?? null);
+
+			CRest::setLog([
+				'event' => 'clearing_spa_type',
+				'spaTypeId' => $spaTypeId,
+				'fieldCode' => $fieldCode,
+				'linkedIds' => $linkedIds,
+			], 'clear_all_debug');
+
+			foreach ($linkedIds as $spaId) {
+				$deleted = SpaSync::deleteSpaItem($spaTypeId, $spaId);
+				$actions[] = [
+					'action'  => $deleted ? 'deleted' : 'delete_failed',
+					'spaType' => $spaTypeId,
+					'spaId'   => $spaId,
+				];
+			}
+
+			// Clear the link field on the entity
+			self::updateClassicEntityField($entityType, $entityId, $fieldCode, []);
+			$actions[] = ['action' => 'unlinked', 'field' => $fieldCode];
+		}
+
+		// 2. Zero out subtotal fields
+		$currencyId = $entity['CURRENCY_ID'] ?? 'AED';
+		$zeroValue  = '0.00|' . $currencyId;
+
+		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
+		foreach ($subtotalFields as $spaTypeId => $fieldCode) {
+			if (!$fieldCode) {
+				continue;
+			}
+			self::updateClassicEntityField($entityType, $entityId, $fieldCode, $zeroValue);
+			$actions[] = ['action' => 'zeroed_subtotal', 'field' => $fieldCode];
+		}
+
+		// 3. Zero out option total fields
+		$totalFields = SpaSync::TOTAL_FIELD_MAPS[$entityType] ?? [];
+		foreach ($totalFields as $optionKey => $fieldCode) {
+			if (!$fieldCode) {
+				continue;
+			}
+			self::updateClassicEntityField($entityType, $entityId, $fieldCode, $zeroValue);
+			$actions[] = ['action' => 'zeroed_total', 'field' => $fieldCode, 'option' => $optionKey];
+		}
+
+		// 4. Set status field to Done
+		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
+		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
+		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+
+		CRest::setLog([
+			'event' => 'clear_all_spa_complete',
+			'entityType' => $entityType,
+			'entityId' => $entityId,
+			'actionCount' => count($actions),
+		], 'clear_all_lifecycle');
+
+		return [
+			'success' => true,
+			'actions' => $actions,
+			'errors'  => $errors,
+		];
+	}
+
+	/**
 	 * Sync all Leads and Deals that reference a specific catalog product.
 	 */
 	public static function syncAllEntitiesByProduct(int $productId): array

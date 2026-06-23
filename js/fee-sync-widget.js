@@ -746,7 +746,7 @@ var FeeSyncWidget = (function () {
     var payload = {
       entityType: state.entityType,
       entityId: state.entityId,
-      action: 'sync',
+      action: rows.length === 0 ? 'clearAll' : 'sync',
       auth: authData
     };
     console.log('[FeeSyncWidget] SPA Sync Request Payload:', payload);
