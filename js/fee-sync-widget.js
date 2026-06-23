@@ -609,7 +609,7 @@ var FeeSyncWidget = (function () {
   }
 
   // ─── Save & Sync ───────────────────────────────────────────────────────────
-  function saveAndSync() {
+  function saveAndSync() { 
     setStatus('Saving…', 'status-info');
     recalcTotals();
 
