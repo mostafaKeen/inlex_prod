@@ -614,7 +614,7 @@ var FeeSyncWidget = (function () {
     recalcTotals();
 
     var rows = collectRowData();
-    if (rows.length === 0) { setStatus('No products to save', 'status-warning'); return; }
+    if (rows.length === 0) { setStatus('No products to save – clearing existing items', 'status-warning'); }
 
     log('Saving ' + rows.length + ' product row(s) to ' + state.entityType + ' #' + state.entityId);
 
