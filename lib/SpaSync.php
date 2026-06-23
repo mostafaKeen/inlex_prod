@@ -128,6 +128,18 @@ class SpaSync
 	];
 
 	/**
+	 * FIX: Explicit mapping for quantity fields per SPA entity type
+	 * These are the field codes for the quantity field in each SPA type.
+	 * Used as fallback when label-based resolution fails.
+	 */
+	const QUANTITY_FIELD_CODES = [
+		1058 => 'UF_CRM_15_1782194345',  // Professional Fees Option 1 - quantity
+		1062 => 'UF_CRM_17_1782194321',  // Government Fees Option 1 - quantity
+		1070 => 'UF_CRM_21_1782194288',  // Professional Fees Option 2 - quantity
+		1074 => 'UF_CRM_23_1782194371',  // Government Fees Option 2 - quantity
+	];
+
+	/**
 	 * Determine SPA entity type from cost type value and option value.
 	 */
 	public static function resolveSpaEntityTypeId(?string $costType, ?string $option = null): ?int
@@ -191,6 +203,9 @@ class SpaSync
 
 	/**
 	 * Build SPA fields payload from product row and catalog product data.
+	 * 
+	 * FIX: Now includes quantity field using explicit field code mapping
+	 * as fallback if label-based resolution fails.
 	 */
 	public static function buildSpaFields(
 		array $productRow,
@@ -223,9 +238,33 @@ class SpaSync
 		$priceField = FieldMapper::resolveSpaField($spaFieldMap, ['Price', 'Amount', 'opportunity']);
 		$fields[$priceField ?: 'opportunity'] = $amount;
 
+		// FIX: Try label-based resolution first, then fall back to explicit field code
 		$qtyField = FieldMapper::resolveSpaField($spaFieldMap, ['Quantity', 'Qty']);
+		
+		// If label resolution fails, use explicit field code mapping
+		if (!$qtyField && $entityTypeId && isset(self::QUANTITY_FIELD_CODES[$entityTypeId])) {
+			$qtyField = self::QUANTITY_FIELD_CODES[$entityTypeId];
+			CRest::setLog([
+				'info' => 'Using explicit quantity field code (label resolution failed)',
+				'entityTypeId' => $entityTypeId,
+				'qtyField' => $qtyField,
+			], 'spa_quantity_field_fallback');
+		}
+
 		if ($qtyField) {
 			$fields[$qtyField] = $quantity;
+			CRest::setLog([
+				'success' => 'Quantity field set',
+				'qtyField' => $qtyField,
+				'quantity' => $quantity,
+				'entityTypeId' => $entityTypeId,
+			], 'spa_quantity_field');
+		} else {
+			CRest::setLog([
+				'warning' => 'Could not resolve quantity field for entity type',
+				'entityTypeId' => $entityTypeId,
+				'availableFieldsInMap' => count($spaFieldMap),
+			], 'spa_quantity_field_error');
 		}
 
 		if ($catalogProduct) {
