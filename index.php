@@ -362,6 +362,7 @@
 					<th style="width:140px;">Option</th>
 					<th style="width:170px;">Type of Cost</th>
 					<th style="width:140px;">Price</th>
+<th style="width:80px;">Qty</th>
 					<th style="width:160px;">Payments</th>
 					<th style="width:110px;">Tax %</th>
 					<th style="width:140px;">Amount</th>
@@ -701,9 +702,8 @@ var FeeSyncWidget = (function () {
 			'<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
 			'<td><select class="input-bx select-bx js-option">' + optOpts + '</select></td>',
 			'<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
-			'<td><div class="input-bx-wrapper">',
-			  '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
-			  '<span class="input-bx-suffix">Dh</span></div></td>',
+			'<td><div class="input-bx-wrapper">  <input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">  <span class="input-bx-suffix">Dh</span></div></td>',
+			'<td><input type="number" class="input-bx js-qty" min="1" step="1" value="' + row.qty + '"></td>',
 			'<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
 			'<td><div class="input-bx-wrapper">',
 			  '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
@@ -732,9 +732,13 @@ var FeeSyncWidget = (function () {
 			log('Row ' + row.id + ' payments → ' + e.target.value);
 		});
 		tr.querySelector('.js-price').addEventListener('input', function (e) {
-			updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
-			recalcRowAmount(row.id);
-		});
+    updateRowField(row.id, 'price', parseFloat(e.target.value) || 0);
+    recalcRowAmount(row.id);
+});
+		tr.querySelector('.js-qty').addEventListener('input', function (e) {
+    updateRowField(row.id, 'qty', parseFloat(e.target.value) || 1);
+    recalcRowAmount(row.id);
+});
 		tr.querySelector('.js-tax').addEventListener('input', function (e) {
 			updateRowField(row.id, 'taxRate', parseFloat(e.target.value) || 0);
 			recalcRowAmount(row.id);
@@ -844,6 +848,7 @@ var FeeSyncWidget = (function () {
 			if (!row) return;
 
 			var priceEl = tr2.querySelector('.js-price');
+var qtyEl = tr2.querySelector('.js-qty');
 			var taxEl   = tr2.querySelector('.js-tax');
 			var nameEl  = tr2.querySelector('.js-product-name');
 			var tocEl   = tr2.querySelector('.js-type-of-cost');
@@ -851,6 +856,7 @@ var FeeSyncWidget = (function () {
 			var optEl   = tr2.querySelector('.js-option');
 
 			if (priceEl) row.price   = parseFloat(priceEl.value) || 0;
+if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			if (taxEl)   row.taxRate = parseFloat(taxEl.value)   || 0;
 			if (nameEl)  row.name    = nameEl.value;
 			// Only overwrite when user has actually chosen a value
