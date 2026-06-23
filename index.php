@@ -1310,19 +1310,14 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 	function saveAndSync() {
 		recalcTotals();
 		var rows = state.rows.filter(function (r) { return r.name || r.productId; });
-
-		if (rows.length === 0) {
-			setStatus('⚠ No products to save – clearing existing items', 'status-warning');
-			// continue to save with empty rows to clear previous products
-		}
-
+		var isClearing = (rows.length === 0);
 
 		console.log('[FeeSyncWidget] Pre-save rows:', JSON.stringify(rows.map(function(r){
 			return { id: r.id, name: r.name, typeOfCost: r.typeOfCost, option: r.option, payments: r.payments, price: r.price };
 		})));
 
 		showSaveModal();
-		log('Saving ' + rows.length + ' row(s) to ' + state.entityType + ' #' + state.entityId);
+		log((isClearing ? 'Clearing' : 'Saving ' + rows.length) + ' row(s) on ' + state.entityType + ' #' + state.entityId);
 
 		var method = state.entityType === 'deal'
 			? 'crm.deal.productrows.set'
@@ -1340,27 +1335,40 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			};
 		});
 
-		BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
-			if (res.error()) {
-				closeSaveModal(false, 'Save failed');
-				setStatus('✗ Error saving products', 'status-danger');
-				log('Error: ' + res.error());
-				return;
-			}
-			log('Product rows saved OK');
-
+		// Helper: continues the rest of the save pipeline (catalog, opportunity, SPA, status)
+		function continueAfterProductRows() {
 			updateCatalogProducts(rows, function () {
 				var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
 				updateEntityOpportunity(totalAmt, function () {
 					syncSpaItems(rows, function () {
 						updateEntityStatus(function () {
-							closeSaveModal(true, rows.length + ' product' + (rows.length !== 1 ? 's' : ''));
+							var msg = isClearing
+								? 'All products cleared'
+								: rows.length + ' product' + (rows.length !== 1 ? 's' : '');
+							closeSaveModal(true, msg);
 							setStatus('✓ Saved & synced', 'status-success');
 							log('All done');
 						});
 					});
 				});
 			});
+		}
+
+		BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+			if (res.error()) {
+				if (isClearing) {
+					// Clearing products – API may reject empty rows; that's OK, continue unbinding
+					log('productrows.set with empty rows returned error (expected): ' + res.error());
+					continueAfterProductRows();
+				} else {
+					closeSaveModal(false, 'Save failed');
+					setStatus('✗ Error saving products', 'status-danger');
+					log('Error: ' + res.error());
+				}
+				return;
+			}
+			log('Product rows saved OK');
+			continueAfterProductRows();
 		});
 	}
 

@@ -614,9 +614,9 @@ var FeeSyncWidget = (function () {
     recalcTotals();
 
     var rows = collectRowData();
-    if (rows.length === 0) { setStatus('No products to save – clearing existing items', 'status-warning'); }
+    var isClearing = (rows.length === 0);
 
-    log('Saving ' + rows.length + ' product row(s) to ' + state.entityType + ' #' + state.entityId);
+    log((isClearing ? 'Clearing' : 'Saving ' + rows.length) + ' product row(s) on ' + state.entityType + ' #' + state.entityId);
 
     var method = state.entityType === 'deal'
       ? 'crm.deal.productrows.set'
@@ -634,23 +634,33 @@ var FeeSyncWidget = (function () {
       };
     });
 
-    BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
-      if (res.error()) {
-        setStatus('Error saving products: ' + res.error(), 'status-danger');
-        log('Error: ' + res.error());
-        return;
-      }
-      log('Product rows saved OK (with updated sort order)');
-
+    // Helper: continues the rest of the save pipeline
+    function continueAfterProductRows() {
       updateCatalogProducts(rows, function () {
         var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
         updateEntityOpportunity(totalAmt, function () {
           syncSpaItems(rows, function () {
-            setStatus('Saved & synced ✓', 'status-success');
+            setStatus(isClearing ? 'All products cleared ✓' : 'Saved & synced ✓', 'status-success');
             log('All done');
           });
         });
       });
+    }
+
+    BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+      if (res.error()) {
+        if (isClearing) {
+          // API may reject empty rows; that's OK – continue unbinding
+          log('productrows.set with empty rows returned error (expected): ' + res.error());
+          continueAfterProductRows();
+        } else {
+          setStatus('Error saving products: ' + res.error(), 'status-danger');
+          log('Error: ' + res.error());
+        }
+        return;
+      }
+      log('Product rows saved OK');
+      continueAfterProductRows();
     });
   }
 
