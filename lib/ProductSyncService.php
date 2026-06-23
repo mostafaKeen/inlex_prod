@@ -384,6 +384,27 @@ class ProductSyncService
 			return ['success' => false, 'actions' => [], 'errors' => ['Entity not found']];
 		}
 
+		// Delete all product rows from the Lead/Deal
+		$entityTypeId = self::ENTITY_TYPE_MAP[$entityType] ?? null;
+		$ownerType = $entityTypeId ? (self::OWNER_TYPE_MAP[$entityTypeId] ?? null) : null;
+		if ($ownerType) {
+			$productRows = self::getProductRows($ownerType, $entityId);
+			foreach ($productRows as $row) {
+				$rowId = (int)($row['id'] ?? 0);
+				if ($rowId > 0) {
+					$delRes = CRest::call('crm.item.productrow.delete', ['id' => $rowId]);
+					if (!empty($delRes['error'])) {
+						$errors[] = "Failed to delete product row {$rowId}: " . ($delRes['error_description'] ?? $delRes['error']);
+					}
+					$actions[] = [
+						'action' => 'deleted_product_row',
+						'rowId' => $rowId,
+						'success' => empty($delRes['error']),
+					];
+				}
+			}
+		}
+
 		// 1. Delete every linked SPA item and clear the link fields
 		foreach ($feeFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
