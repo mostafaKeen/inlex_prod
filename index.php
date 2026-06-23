@@ -1312,9 +1312,10 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		var rows = state.rows.filter(function (r) { return r.name || r.productId; });
 
 		if (rows.length === 0) {
-			setStatus('⚠ No products to save', 'status-warning');
-			return;
+			setStatus('⚠ No products to save – clearing existing items', 'status-warning');
+			// continue to save with empty rows to clear previous products
 		}
+
 
 		console.log('[FeeSyncWidget] Pre-save rows:', JSON.stringify(rows.map(function(r){
 			return { id: r.id, name: r.name, typeOfCost: r.typeOfCost, option: r.option, payments: r.payments, price: r.price };
