@@ -81,6 +81,7 @@ class ProductSyncService
 		CRest::setLog([
 			'event' => 'product_rows_fetched',
 			'count' => count($productRows),
+			'productRows' => $productRows,
 		], 'sync_entity_debug');
 
 		$entity = self::getClassicEntity($entityType, $entityId);
@@ -167,7 +168,7 @@ class ProductSyncService
 			// Accumulate sub-total for this fee type/option based on row price x quantity
 			$rowPrice = (float)($row['price'] ?? 0);
 			$rowQty   = (float)($row['quantity'] ?? 1);
-			$rowTaxRate = (float)($row['TAX_RATE'] ?? 0);
+			$rowTaxRate = (float)($row['taxRate'] ?? 0);
 			$rowBase = $rowPrice * $rowQty;
 			$rowTax = $rowBase * ($rowTaxRate / 100);
 			
