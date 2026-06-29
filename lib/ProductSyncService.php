@@ -346,21 +346,33 @@ class ProductSyncService
 			}
 		}
 
-		// Update opportunity/amount with total including taxes
+		// Update opportunity/amount with total including taxes and set currency
 		$totalWithTax = $totalWithoutTax + $totalTaxAmount;
-		$opportunityValue = number_format($totalWithTax, 2, '.', '');
 		
-		$opportunityFieldCode = $entityType === 'lead' ? 'OPPORTUNITY' : 'OPPORTUNITY';
 		$updateResult = $entityType === 'lead'
-			? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => $opportunityValue], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
-			: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => $opportunityValue], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			? CRest::call('crm.lead.update', [
+				'id' => $entityId, 
+				'fields' => [
+					'OPPORTUNITY' => $totalWithTax,
+					'CURRENCY_ID' => $currencyId
+				], 
+				'params' => ['REGISTER_SONET_EVENT' => 'N']
+			])
+			: CRest::call('crm.deal.update', [
+				'id' => $entityId, 
+				'fields' => [
+					'OPPORTUNITY' => $totalWithTax,
+					'CURRENCY_ID' => $currencyId
+				], 
+				'params' => ['REGISTER_SONET_EVENT' => 'N']
+			]);
 		
 		CRest::setLog([
-			'field'    => $opportunityFieldCode,
+			'fields'   => ['OPPORTUNITY', 'CURRENCY_ID'],
 			'withoutTax' => $totalWithoutTax,
 			'taxAmount' => $totalTaxAmount,
 			'withTax' => $totalWithTax,
-			'sentValue' => $opportunityValue,
+			'currencyId' => $currencyId,
 			'response' => $updateResult,
 		], 'opportunity_update_debug');
 
@@ -369,6 +381,7 @@ class ProductSyncService
 			'withoutTax' => $totalWithoutTax,
 			'taxAmount' => $totalTaxAmount,
 			'withTax' => $totalWithTax,
+			'currencyId' => $currencyId,
 			'apiError' => $updateResult['error'] ?? null,
 		];
 
@@ -491,12 +504,30 @@ class ProductSyncService
 			$actions[] = ['action' => 'zeroed_total', 'field' => $fieldCode, 'option' => $optionKey];
 		}
 
-		// 4. Reset opportunity to 0
-		$opportunityFieldCode = 'OPPORTUNITY';
+		// 4. Reset opportunity to 0 and ensure currency is set
 		$updateResult = $entityType === 'lead'
-			? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => 0], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
-			: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => 0], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
-		$actions[] = ['action' => 'reset_opportunity', 'field' => $opportunityFieldCode, 'value' => 0];
+			? CRest::call('crm.lead.update', [
+				'id' => $entityId, 
+				'fields' => [
+					'OPPORTUNITY' => 0,
+					'CURRENCY_ID' => $currencyId
+				], 
+				'params' => ['REGISTER_SONET_EVENT' => 'N']
+			])
+			: CRest::call('crm.deal.update', [
+				'id' => $entityId, 
+				'fields' => [
+					'OPPORTUNITY' => 0,
+					'CURRENCY_ID' => $currencyId
+				], 
+				'params' => ['REGISTER_SONET_EVENT' => 'N']
+			]);
+		$actions[] = [
+			'action' => 'reset_opportunity', 
+			'fields' => ['OPPORTUNITY', 'CURRENCY_ID'], 
+			'value' => 0,
+			'currencyId' => $currencyId
+		];
 
 		// 5. Set status field to Done
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
