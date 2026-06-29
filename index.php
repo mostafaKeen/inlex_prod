@@ -1338,7 +1338,11 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		// Helper: continues the rest of the save pipeline (catalog, opportunity, SPA, status)
 		function continueAfterProductRows() {
 			updateCatalogProducts(rows, function () {
-				var totalAmt = rows.reduce(function (sum, r) { return sum + r.price * r.qty; }, 0);
+				var totalAmt = rows.reduce(function (sum, r) { 
+					var base = r.price * r.qty;
+					var tax = base * (r.taxRate / 100);
+					return sum + base + tax; 
+				}, 0);
 				updateEntityOpportunity(totalAmt, function () {
 					syncSpaItems(rows, function () {
 						updateEntityStatus(function () {
