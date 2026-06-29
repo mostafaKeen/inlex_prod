@@ -112,6 +112,9 @@ class ProductSyncService
 			1074 => 0.0,
 		];
 
+		$totalWithoutTax = 0.0;
+		$totalTaxAmount = 0.0;
+
 		foreach ($productRows as $row) {
 			$productName = trim($row['productName'] ?? '');
 			$productId = (int)($row['productId'] ?? 0);
@@ -164,7 +167,13 @@ class ProductSyncService
 			// Accumulate sub-total for this fee type/option based on row price x quantity
 			$rowPrice = (float)($row['price'] ?? 0);
 			$rowQty   = (float)($row['quantity'] ?? 1);
-			$subtotals[$spaEntityTypeId] += $rowPrice * $rowQty;
+			$rowTaxRate = (float)($row['TAX_RATE'] ?? 0);
+			$rowBase = $rowPrice * $rowQty;
+			$rowTax = $rowBase * ($rowTaxRate / 100);
+			
+			$subtotals[$spaEntityTypeId] += $rowBase;
+			$totalWithoutTax += $rowBase;
+			$totalTaxAmount += $rowTax;
 
 			// Search for existing SPA item with this externalId across all 4 SPA types
 			$existing = null;
@@ -337,6 +346,32 @@ class ProductSyncService
 			}
 		}
 
+		// Update opportunity/amount with total including taxes
+		$totalWithTax = $totalWithoutTax + $totalTaxAmount;
+		$opportunityValue = number_format($totalWithTax, 2, '.', '');
+		
+		$opportunityFieldCode = $entityType === 'lead' ? 'OPPORTUNITY' : 'OPPORTUNITY';
+		$updateResult = $entityType === 'lead'
+			? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => $opportunityValue], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+			: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => $opportunityValue], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+		
+		CRest::setLog([
+			'field'    => $opportunityFieldCode,
+			'withoutTax' => $totalWithoutTax,
+			'taxAmount' => $totalTaxAmount,
+			'withTax' => $totalWithTax,
+			'sentValue' => $opportunityValue,
+			'response' => $updateResult,
+		], 'opportunity_update_debug');
+
+		$actions[] = [
+			'action'   => 'updated_opportunity',
+			'withoutTax' => $totalWithoutTax,
+			'taxAmount' => $totalTaxAmount,
+			'withTax' => $totalWithTax,
+			'apiError' => $updateResult['error'] ?? null,
+		];
+
 		// Set utm_check to Done
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
 		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
@@ -456,7 +491,14 @@ class ProductSyncService
 			$actions[] = ['action' => 'zeroed_total', 'field' => $fieldCode, 'option' => $optionKey];
 		}
 
-		// 4. Set status field to Done
+		// 4. Reset opportunity to 0
+		$opportunityFieldCode = 'OPPORTUNITY';
+		$updateResult = $entityType === 'lead'
+			? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => 0], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+			: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$opportunityFieldCode => 0], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+		$actions[] = ['action' => 'reset_opportunity', 'field' => $opportunityFieldCode, 'value' => 0];
+
+		// 5. Set status field to Done
 		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
 		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
 		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
