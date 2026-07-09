@@ -344,9 +344,17 @@
 
 	<!-- Action Bar -->
 	<div class="action-bar">
-		<div class="left-actions">
+		<div class="left-actions" style="align-items: center; display: flex; gap: 8px;">
 			<button id="btn-select-product" class="btn-secondary-bx">📋 Select from Catalog</button>
 			<button id="btn-edit-product"   class="btn-secondary-bx">✏️ Create Product</button>
+			<div class="currency-selector" style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+				<span style="color: #828b95; font-weight: 600;">Currency:</span>
+				<select id="entity-currency" class="input-bx select-bx" style="width: 110px; padding: 6px 10px; display: inline-block;">
+					<option value="AED">AED (Dh)</option>
+					<option value="USD">USD ($)</option>
+					<option value="EUR">EUR (€)</option>
+				</select>
+			</div>
 		</div>
 		<button id="btn-save" class="btn-save-sync">💾 Save &amp; Sync</button>
 	</div>
@@ -362,7 +370,7 @@
 					<th style="width:140px;">Option</th>
 					<th style="width:170px;">Type of Cost</th>
 					<th style="width:140px;">Price</th>
-<th style="width:80px;">Qty</th>
+					<th style="width:80px;">Qty</th>
 					<th style="width:160px;">Payments</th>
 					<th style="width:110px;">Tax %</th>
 					<th style="width:140px;">Amount</th>
@@ -376,12 +384,12 @@
 	<!-- Totals -->
 	<div class="totals-container">
 		<div class="totals-box">
-			<div class="total-row"><span>Subtotal (no tax):</span><strong id="total-raw">Dh 0.00</strong></div>
-			<div class="total-row"><span>Delivery:</span><strong>Dh 0.00</strong></div>
-			<div class="total-row"><span>Discount:</span><strong>Dh 0.00</strong></div>
-			<div class="total-row"><span>Total before tax:</span><strong id="total-before-tax">Dh 0.00</strong></div>
-			<div class="total-row"><span>Tax total:</span><strong id="total-tax">Dh 0.00</strong></div>
-			<div class="total-row grand-total"><span>Total amount:</span><strong id="total-amount">Dh 0.00</strong></div>
+			<div class="total-row"><span>Subtotal (no tax):</span><strong id="total-raw">—</strong></div>
+			<div class="total-row"><span>Delivery:</span><strong>—</strong></div>
+			<div class="total-row"><span>Discount:</span><strong>—</strong></div>
+			<div class="total-row"><span>Total before tax:</span><strong id="total-before-tax">—</strong></div>
+			<div class="total-row"><span>Tax total:</span><strong id="total-tax">—</strong></div>
+			<div class="total-row grand-total"><span>Total amount:</span><strong id="total-amount">—</strong></div>
 		</div>
 	</div>
 
@@ -447,10 +455,21 @@ var FeeSyncWidget = (function () {
 	};
 	var PROP_OPTIONS = { '235': 'Option 1', '237': 'Option 2' };
 
+	var currencySymbols = {
+		'AED': 'Dh',
+		'USD': '$',
+		'EUR': '€'
+	};
+
+	function getCurrencySymbol() {
+		return currencySymbols[state.currencyId] || state.currencyId || 'Dh';
+	}
+
 	// ─── State ────────────────────────────────────────────────────────────────
 	var state = {
 		entityType:     null,
 		entityId:       null,
+		currencyId:     'AED',
 		rows:           [],
 		nextRowId:      1,
 		productCatalog: [],
@@ -507,15 +526,28 @@ var FeeSyncWidget = (function () {
 		setStatus('Loading…', 'status-info');
 		log('Init for ' + entityType + ' #' + entityId);
 
-		setLoadingText('Loading catalog…');
-		fetchIblockId(function () {
-			loadCatalogProducts(function () {
-				setLoadingText('Loading products…');
-				loadEntityProducts(function () {
-					renderRows();
-					bindActions();
-					setStatus('✓ Ready to save', 'status-info');
-					if (typeof onReady === 'function') onReady();
+		setLoadingText('Loading entity…');
+		var method = entityType === 'deal' ? 'crm.deal.get' : 'crm.lead.get';
+		BX24.callMethod(method, { id: entityId }, function (res) {
+			if (!res.error() && res.data()) {
+				state.currencyId = res.data().CURRENCY_ID || 'AED';
+				log('Detected entity currency: ' + state.currencyId);
+				var selectEl = document.getElementById('entity-currency');
+				if (selectEl) selectEl.value = state.currencyId;
+			} else {
+				log('Failed to fetch entity currency: ' + res.error());
+			}
+
+			setLoadingText('Loading catalog…');
+			fetchIblockId(function () {
+				loadCatalogProducts(function () {
+					setLoadingText('Loading products…');
+					loadEntityProducts(function () {
+						renderRows();
+						bindActions();
+						setStatus('✓ Ready to save', 'status-info');
+						if (typeof onReady === 'function') onReady();
+					});
 				});
 			});
 		});
@@ -702,14 +734,14 @@ var FeeSyncWidget = (function () {
 			'<td><input type="text" class="input-bx js-product-name" placeholder="Product name" value="' + escHtml(row.name) + '" style="width:100%"></td>',
 			'<td><select class="input-bx select-bx js-option">' + optOpts + '</select></td>',
 			'<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
-			'<td><div class="input-bx-wrapper">  <input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">  <span class="input-bx-suffix">Dh</span></div></td>',
+			'<td><div class="input-bx-wrapper">  <input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">  <span class="input-bx-suffix">' + getCurrencySymbol() + '</span></div></td>',
 			'<td><input type="number" class="input-bx js-qty" min="1" step="1" value="' + row.qty + '"></td>',
 			'<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
 			'<td><div class="input-bx-wrapper">',
 			  '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
 			  '<span class="input-bx-suffix">%</span></div></td>',
 			'<td><div class="input-bx-wrapper">',
-			  '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
+			  '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">' + getCurrencySymbol() + '</span>',
 			  '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
 			'</div></td>',
 			'<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
@@ -875,10 +907,11 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			taxTotal += base * (r.taxRate / 100);
 		});
 
-		setText('total-raw',        'Dh ' + raw.toFixed(2));
-		setText('total-before-tax', 'Dh ' + raw.toFixed(2));
-		setText('total-tax',        'Dh ' + taxTotal.toFixed(2));
-		setText('total-amount',     'Dh ' + (raw + taxTotal).toFixed(2));
+		var sym = getCurrencySymbol();
+		setText('total-raw',        sym + ' ' + raw.toFixed(2));
+		setText('total-before-tax', sym + ' ' + raw.toFixed(2));
+		setText('total-tax',        sym + ' ' + taxTotal.toFixed(2));
+		setText('total-amount',     sym + ' ' + (raw + taxTotal).toFixed(2));
 	}
 
 	function setText(id, val) {
@@ -1009,7 +1042,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 				tr2.innerHTML = [
 					'<td style="padding:8px 10px;text-align:center"><input type="checkbox" data-pid="' + pid + '"' + (isSel ? ' checked' : '') + (isAlreadyAdded ? ' disabled' : '') + '></td>',
 					'<td style="padding:8px 10px;font-weight:600;color:#333">' + escHtml(pname) + (isAlreadyAdded ? ' <span style="font-weight:400;color:#a8adb2;font-size:11px">(already added)</span>' : '') + '</td>',
-					'<td style="padding:8px 10px;color:#535c69">Dh ' + price + '</td>',
+					'<td style="padding:8px 10px;color:#535c69">' + getCurrencySymbol() + ' ' + price + '</td>',
 					'<td style="padding:8px 10px">' + optBadge + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
 					'<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
@@ -1108,7 +1141,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 				'</div>',
 
 				'<div style="display:flex;flex-direction:column;gap:4px">',
-					'<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
+					'<label style="font-weight:600;color:#535c69">Price (' + getCurrencySymbol() + ')</label>',
 					'<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
 				'</div>',
 
@@ -1226,7 +1259,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 
 						if (newId && price > 0) {
 							BX24.callMethod('catalog.price.add', {
-								fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
+								fields: { productId: newId, catalogGroupId: 1, price: price, currency: state.currencyId }
 							}, function () {});
 						}
 
@@ -1292,9 +1325,9 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 							BX24.callMethod('catalog.price.list', { filter: { productId: productId, catalogGroupId: 1 } }, function (pr) {
 								var prices = (!pr.error() && pr.data()) ? pr.data() : [];
 								if (prices.length > 0) {
-									BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: 'AED' } }, function () {});
+									BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: state.currencyId } }, function () {});
 								} else {
-									BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: 'AED' } }, function () {});
+									BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: state.currencyId } }, function () {});
 								}
 							});
 						}
@@ -1457,10 +1490,10 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
 		BX24.callMethod(method, {
 			id: state.entityId,
-			fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y' }
+			fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y', CURRENCY_ID: state.currencyId }
 		}, function (res) {
 			if (res.error()) log('Opportunity update error: ' + res.error());
-			else log('Opportunity → ' + amount.toFixed(2));
+			else log('Opportunity → ' + amount.toFixed(2) + ' ' + state.currencyId);
 			if (cb) cb();
 		});
 	}
@@ -1615,6 +1648,17 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		rebind('btn-select-product', showProductPickerModal);
 		rebind('btn-save',           saveAndSync);
 		rebind('btn-edit-product',   function () { showProductEditModal(null); });
+
+		var selectEl = document.getElementById('entity-currency');
+		if (selectEl) {
+			var newSelect = selectEl.cloneNode(true);
+			selectEl.parentNode.replaceChild(newSelect, selectEl);
+			newSelect.addEventListener('change', function (e) {
+				state.currencyId = e.target.value;
+				log('Currency changed to: ' + state.currencyId);
+				renderRows();
+			});
+		}
 	}
 
 	// ─── Helpers ──────────────────────────────────────────────────────────────

@@ -89,6 +89,8 @@ class ProductSyncService
 			return ['success' => false, 'actions' => [], 'errors' => ['Entity not found']];
 		}
 
+		$currencyId = $entity['CURRENCY_ID'] ?? 'AED';
+
 		$linkedSpaIds = [];
 		foreach ($feeFields as $spaTypeId => $fieldCode) {
 			$linkedSpaIds[$spaTypeId] = SpaSync::normalizeLinkedIds($entity[$fieldCode] ?? null);
@@ -156,6 +158,7 @@ class ProductSyncService
 			$externalId = "{$entityType}_{$entityId}_{$productId}";
 			$spaFieldMap = $spaFieldMaps[$spaEntityTypeId];
 			$spaFields = SpaSync::buildSpaFields($row, $catalogProduct, $productPropertyMap, $spaFieldMap, $externalId, $spaEntityTypeId);
+			$spaFields['currencyId'] = $currencyId;
 
 			CRest::setLog([
 				'event' => 'spa_fields_built',

@@ -304,9 +304,17 @@ if (!$entityType || $entityId <= 0):
 <body>
 	<div class="widget-container">
 		<div class="action-bar">
-			<div class="left-actions">
+			<div class="left-actions" style="align-items: center;">
 				<button id="btn-add-product" class="btn-primary-bx">Add product</button>
 				<button id="btn-select-product" class="btn-secondary-bx">Select product</button>
+				<div class="currency-selector" style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+					<span style="color: #828b95; font-weight: 600;">Currency:</span>
+					<select id="entity-currency" class="input-bx select-bx" style="width: 110px; padding: 6px 10px; display: inline-block;">
+						<option value="AED">AED (Dh)</option>
+						<option value="USD">USD ($)</option>
+						<option value="EUR">EUR (€)</option>
+					</select>
+				</div>
 			</div>
 			<button class="btn-icon-bx">•••</button>
 		</div>
@@ -336,27 +344,27 @@ if (!$entityType || $entityId <= 0):
 			<div class="totals-box">
 				<div class="total-row">
 					<span>Total without discounts and taxes:</span>
-					<strong id="total-raw">Dh0</strong>
+					<strong id="total-raw">—</strong>
 				</div>
 				<div class="total-row">
 					<span>Delivery price:</span>
-					<strong>Dh0</strong>
+					<strong>—</strong>
 				</div>
 				<div class="total-row">
 					<span>Discount amount:</span>
-					<strong>Dh0</strong>
+					<strong>—</strong>
 				</div>
 				<div class="total-row">
 					<span>Total before tax:</span>
-					<strong id="total-before-tax">Dh0</strong>
+					<strong id="total-before-tax">—</strong>
 				</div>
 				<div class="total-row">
 					<span>Tax total:</span>
-					<strong>Dh0</strong>
+					<strong id="total-tax">—</strong>
 				</div>
 				<div class="total-row grand-total">
 					<span>Total amount:</span>
-					<strong id="total-amount">Dh0</strong>
+					<strong id="total-amount">—</strong>
 				</div>
 			</div>
 		</div>

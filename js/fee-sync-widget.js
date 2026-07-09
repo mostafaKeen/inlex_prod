@@ -45,10 +45,21 @@ var FeeSyncWidget = (function () {
     '205': 'One time (cost depends on transactions)'
   };
 
+  var currencySymbols = {
+    'AED': 'Dh',
+    'USD': '$',
+    'EUR': '€'
+  };
+
+  function getCurrencySymbol() {
+    return currencySymbols[state.currencyId] || state.currencyId || 'Dh';
+  }
+
   // ─── State ─────────────────────────────────────────────────────────────────
   var state = {
     entityType:     null,
     entityId:       null,
+    currencyId:     'AED',
     rows:           [],
     nextRowId:      1,
     productCatalog: [],
@@ -89,13 +100,25 @@ var FeeSyncWidget = (function () {
     setStatus('Loading…', 'status-info');
     log('Initialising for ' + entityType + ' #' + entityId);
 
-    fetchIblockId(function () {
-      loadCatalogProducts(function () {
-        loadEntityProducts(function () {
-          renderRows();
-          bindActions();
-          setStatus('Ready', 'status-info');
-          if (typeof onReady === 'function') onReady();
+    var method = entityType === 'deal' ? 'crm.deal.get' : 'crm.lead.get';
+    BX24.callMethod(method, { id: entityId }, function (res) {
+      if (!res.error() && res.data()) {
+        state.currencyId = res.data().CURRENCY_ID || 'AED';
+        log('Detected entity currency: ' + state.currencyId);
+        var selectEl = document.getElementById('entity-currency');
+        if (selectEl) selectEl.value = state.currencyId;
+      } else {
+        log('Failed to fetch entity currency: ' + res.error());
+      }
+
+      fetchIblockId(function () {
+        loadCatalogProducts(function () {
+          loadEntityProducts(function () {
+            renderRows();
+            bindActions();
+            setStatus('Ready', 'status-info');
+            if (typeof onReady === 'function') onReady();
+          });
         });
       });
     });
@@ -272,13 +295,13 @@ var FeeSyncWidget = (function () {
       '<td><select class="input-bx select-bx js-type-of-cost">' + typeOpts + '</select></td>',
       '<td><div class="input-bx-wrapper">',
         '<input type="number" class="input-bx input-bx-with-suffix js-price" min="0" step="0.01" value="' + row.price + '">',
-        '<span class="input-bx-suffix">Dh</span></div></td>',
+        '<span class="input-bx-suffix">' + getCurrencySymbol() + '</span></div></td>',
       '<td><select class="input-bx select-bx js-payments">' + payOpts + '</select></td>',
       '<td><div class="input-bx-wrapper">',
         '<input type="number" class="input-bx input-bx-with-suffix js-tax" min="0" max="100" step="0.01" value="' + row.taxRate + '">',
         '<span class="input-bx-suffix">%</span></div></td>',
       '<td><div class="input-bx-wrapper">',
-        '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">Dh</span>',
+        '<span class="input-bx-suffix" style="right:auto;left:10px;pointer-events:none">' + getCurrencySymbol() + '</span>',
         '<input type="number" class="input-bx js-amount" readonly value="' + amount + '" style="padding-left:32px;background:#f7f9fa">',
       '</div></td>',
       '<td><button class="btn-delete js-delete-row" title="Remove">✕</button></td>'
@@ -511,7 +534,7 @@ var FeeSyncWidget = (function () {
         tr2.innerHTML = [
           '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (selected[pid] ? 'checked' : '') + (alreadyAdded ? ' disabled' : '') + ' data-pid="' + pid + '"></td>',
           '<td style="padding:8px 10px;font-weight:600;color:#333">'  + escHtml(pname) + (alreadyAdded ? ' <span style="font-weight:400;color:#a8adb2;font-size:11px">(already added)</span>' : '') + '</td>',
-          '<td style="padding:8px 10px;color:#535c69">Dh ' + price    + '</td>',
+          '<td style="padding:8px 10px;color:#535c69">' + getCurrencySymbol() + ' ' + price    + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(toc) + '</td>',
           '<td style="padding:8px 10px;color:#535c69">' + escHtml(pay) + '</td>',
         ].join('');
@@ -597,10 +620,11 @@ var FeeSyncWidget = (function () {
       taxTotal += base * (r.taxRate / 100);
     });
 
-    setText('total-raw',        'Dh ' + raw.toFixed(2));
-    setText('total-before-tax', 'Dh ' + raw.toFixed(2));
-    setText('total-tax',        'Dh ' + taxTotal.toFixed(2));
-    setText('total-amount',     'Dh ' + (raw + taxTotal).toFixed(2));
+    var sym = getCurrencySymbol();
+    setText('total-raw',        sym + ' ' + raw.toFixed(2));
+    setText('total-before-tax', sym + ' ' + raw.toFixed(2));
+    setText('total-tax',        sym + ' ' + taxTotal.toFixed(2));
+    setText('total-amount',     sym + ' ' + (raw + taxTotal).toFixed(2));
   }
 
   function setText(id, val) {
@@ -730,10 +754,10 @@ var FeeSyncWidget = (function () {
     var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
     BX24.callMethod(method, {
       id:     state.entityId,
-      fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y' }
+      fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y', CURRENCY_ID: state.currencyId }
     }, function (res) {
       if (res.error()) log('Opportunity update error: ' + res.error());
-      else log('Opportunity updated to ' + amount.toFixed(2));
+      else log('Opportunity updated to ' + amount.toFixed(2) + ' ' + state.currencyId);
       if (cb) cb();
     });
   }
@@ -921,7 +945,7 @@ var FeeSyncWidget = (function () {
         '</div>',
 
         '<div style="display:flex;flex-direction:column;gap:4px">',
-          '<label style="font-weight:600;color:#535c69">Price (Dh)</label>',
+          '<label style="font-weight:600;color:#535c69">Price (' + getCurrencySymbol() + ')</label>',
           '<input id="ep-price" type="number" min="0" step="0.01" class="input-bx" value="' + (product ? parseFloat(product.PRICE || 0) : 0) + '">',
         '</div>',
 
@@ -1001,7 +1025,7 @@ var FeeSyncWidget = (function () {
 
           if (newId && price > 0) {
             BX24.callMethod('catalog.price.add', {
-              fields: { productId: newId, catalogGroupId: 1, price: price, currency: 'AED' }
+              fields: { productId: newId, catalogGroupId: 1, price: price, currency: state.currencyId }
             }, function () {});
           }
 
@@ -1047,9 +1071,9 @@ var FeeSyncWidget = (function () {
               BX24.callMethod('catalog.price.list', { filter: { productId: productId, catalogGroupId: 1 } }, function (pr) {
                 var prices = (!pr.error() && pr.data()) ? pr.data() : [];
                 if (prices.length > 0) {
-                  BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: 'AED' } }, function () {});
+                  BX24.callMethod('catalog.price.update', { id: prices[0].id, fields: { price: price, currency: state.currencyId } }, function () {});
                 } else {
-                  BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: 'AED' } }, function () {});
+                  BX24.callMethod('catalog.price.add', { fields: { productId: productId, catalogGroupId: 1, price: price, currency: state.currencyId } }, function () {});
                 }
               });
             }
@@ -1075,6 +1099,18 @@ var FeeSyncWidget = (function () {
     rebind('btn-edit-product', function () {
       showProductEditModal(null);
     });
+
+    var selectEl = document.getElementById('entity-currency');
+    if (selectEl) {
+      // Re-bind change event
+      var newSelect = selectEl.cloneNode(true);
+      selectEl.parentNode.replaceChild(newSelect, selectEl);
+      newSelect.addEventListener('change', function (e) {
+        state.currencyId = e.target.value;
+        log('Currency selection changed to: ' + state.currencyId);
+        renderRows();
+      });
+    }
   }
 
   function escHtml(s) {
