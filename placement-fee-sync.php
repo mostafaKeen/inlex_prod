@@ -340,6 +340,46 @@ if (!$entityType || $entityId <= 0):
 			</table>
 		</div>
 
+		<!-- Additional Option Details -->
+		<div style="font-size: 11px; font-weight: 700; color: #a8adb2; text-transform: uppercase; letter-spacing: 0.6px; margin: 16px 0 12px 0;">Options Details</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #fff; border: 1px solid #e2e5ec; border-radius: 8px; padding: 20px; margin-top: 10px; margin-bottom: 20px;">
+			
+			<!-- Option 1 Fields -->
+			<div style="display: flex; flex-direction: column; gap: 12px;">
+				<h3 style="margin: 0 0 8px 0; color: #0066cc; font-size: 13px; border-bottom: 1px solid #e2e5ec; padding-bottom: 8px;">Option 1 Parameters</h3>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Business Activity</label>
+					<input type="text" id="opt1-business-activity" class="input-bx" placeholder="Enter Business Activity">
+				</div>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Additional Approval Required</label>
+					<input type="text" id="opt1-additional-approval" class="input-bx" placeholder="Enter Additional Approval">
+				</div>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Estimated Timeframe</label>
+					<input type="text" id="opt1-estimated-timeframe" class="input-bx" placeholder="Enter Estimated Timeframe">
+				</div>
+			</div>
+
+			<!-- Option 2 Fields -->
+			<div style="display: flex; flex-direction: column; gap: 12px;">
+				<h3 style="margin: 0 0 8px 0; color: #e65100; font-size: 13px; border-bottom: 1px solid #e2e5ec; padding-bottom: 8px;">Option 2 Parameters</h3>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Business Activity</label>
+					<input type="text" id="opt2-business-activity" class="input-bx" placeholder="Enter Business Activity">
+				</div>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Additional Approval Required</label>
+					<input type="text" id="opt2-additional-approval" class="input-bx" placeholder="Enter Additional Approval">
+				</div>
+				<div style="display: flex; flex-direction: column; gap: 4px;">
+					<label style="font-weight: 600; color: #535c69;">Estimated Timeframe</label>
+					<input type="text" id="opt2-estimated-timeframe" class="input-bx" placeholder="Enter Estimated Timeframe">
+				</div>
+			</div>
+
+		</div>
+
 		<div class="totals-container">
 			<div class="totals-box">
 				<div class="total-row">

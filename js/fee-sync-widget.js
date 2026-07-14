@@ -103,12 +103,29 @@ var FeeSyncWidget = (function () {
     var method = entityType === 'deal' ? 'crm.deal.get' : 'crm.lead.get';
     BX24.callMethod(method, { id: entityId }, function (res) {
       if (!res.error() && res.data()) {
-        state.currencyId = res.data().CURRENCY_ID || 'AED';
+        var data = res.data();
+        state.currencyId = data.CURRENCY_ID || 'AED';
         log('Detected entity currency: ' + state.currencyId);
         var selectEl = document.getElementById('entity-currency');
         if (selectEl) selectEl.value = state.currencyId;
+
+        // Populate Option 1 fields
+        var opt1BA = document.getElementById('opt1-business-activity');
+        var opt1AA = document.getElementById('opt1-additional-approval');
+        var opt1ET = document.getElementById('opt1-estimated-timeframe');
+        if (opt1BA) opt1BA.value = data['UF_CRM_1780995716168'] || '';
+        if (opt1AA) opt1AA.value = data['UF_CRM_1780995738114'] || '';
+        if (opt1ET) opt1ET.value = data['UF_CRM_1780995781074'] || '';
+
+        // Populate Option 2 fields
+        var opt2BA = document.getElementById('opt2-business-activity');
+        var opt2AA = document.getElementById('opt2-additional-approval');
+        var opt2ET = document.getElementById('opt2-estimated-timeframe');
+        if (opt2BA) opt2BA.value = data['UF_CRM_1781558949152'] || '';
+        if (opt2AA) opt2AA.value = data['UF_CRM_1781558963152'] || '';
+        if (opt2ET) opt2ET.value = data['UF_CRM_1781558977537'] || '';
       } else {
-        log('Failed to fetch entity currency: ' + res.error());
+        log('Failed to fetch entity fields: ' + res.error());
       }
 
       fetchIblockId(function () {
@@ -667,9 +684,11 @@ var FeeSyncWidget = (function () {
           return sum + base + tax; 
         }, 0);
         updateEntityOpportunity(totalAmt, function () {
-          syncSpaItems(rows, function () {
-            setStatus(isClearing ? 'All products cleared ✓' : 'Saved & synced ✓', 'status-success');
-            log('All done');
+          updateEntityMetadata(function () {
+            syncSpaItems(rows, function () {
+              setStatus(isClearing ? 'All products cleared ✓' : 'Saved & synced ✓', 'status-success');
+              log('All done');
+            });
           });
         });
       });
@@ -758,6 +777,37 @@ var FeeSyncWidget = (function () {
     }, function (res) {
       if (res.error()) log('Opportunity update error: ' + res.error());
       else log('Opportunity updated to ' + amount.toFixed(2) + ' ' + state.currencyId);
+      if (cb) cb();
+    });
+  }
+
+  function updateEntityMetadata(cb) {
+    var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+    var fields = {};
+
+    // Get Option 1 values
+    var opt1BA = document.getElementById('opt1-business-activity');
+    var opt1AA = document.getElementById('opt1-additional-approval');
+    var opt1ET = document.getElementById('opt1-estimated-timeframe');
+    if (opt1BA) fields['UF_CRM_1780995716168'] = opt1BA.value;
+    if (opt1AA) fields['UF_CRM_1780995738114'] = opt1AA.value;
+    if (opt1ET) fields['UF_CRM_1780995781074'] = opt1ET.value;
+
+    // Get Option 2 values
+    var opt2BA = document.getElementById('opt2-business-activity');
+    var opt2AA = document.getElementById('opt2-additional-approval');
+    var opt2ET = document.getElementById('opt2-estimated-timeframe');
+    if (opt2BA) fields['UF_CRM_1781558949152'] = opt2BA.value;
+    if (opt2AA) fields['UF_CRM_1781558963152'] = opt2AA.value;
+    if (opt2ET) fields['UF_CRM_1781558977537'] = opt2ET.value;
+
+    log('Updating entity metadata fields...');
+    BX24.callMethod(method, { id: state.entityId, fields: fields }, function (res) {
+      if (res.error()) {
+        log('Error updating entity metadata: ' + res.error());
+      } else {
+        log('Entity metadata updated successfully');
+      }
       if (cb) cb();
     });
   }
