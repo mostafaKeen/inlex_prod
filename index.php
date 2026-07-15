@@ -1776,11 +1776,15 @@ BX24.init(function () {
 	if (info && info.placement) {
 		if (info.placement.indexOf('DEAL') !== -1)      detectedType = 'deal';
 		else if (info.placement.indexOf('LEAD') !== -1) detectedType = 'lead';
+		else if (info.placement.indexOf('DYNAMIC_1086') !== -1) detectedType = 'onboarding';
 		if (info.options && info.options.ID) detectedId = parseInt(info.options.ID);
 	}
 
 	if (detectedType && detectedId) {
-		entityTypeLabel.textContent = (detectedType === 'deal' ? 'Deal ' : 'Lead ');
+		var label = 'Lead ';
+		if (detectedType === 'deal') label = 'Deal ';
+		else if (detectedType === 'onboarding') label = 'Onboarding ';
+		entityTypeLabel.textContent = label;
 		entityIdLabel.textContent   = '#' + detectedId;
 
 		FeeSyncWidget.init(detectedType, detectedId, function () {
@@ -1789,7 +1793,7 @@ BX24.init(function () {
 	} else {
 		initialLoading.classList.remove('visible');
 		var st = document.getElementById('sync-status');
-		st.textContent = '✗ Error: Could not detect Deal/Lead context';
+		st.textContent = '✗ Error: Could not detect CRM context';
 		st.className   = 'status-danger';
 	}
 });

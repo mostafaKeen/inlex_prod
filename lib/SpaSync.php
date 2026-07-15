@@ -94,6 +94,12 @@ class SpaSync
 			1070 => 'UF_CRM_1781250874422', // Sub_Total_P_Option2
 			1074 => 'UF_CRM_1781250858979', // Sub_Total_G_Option2
 		],
+		'onboarding' => [
+			1058 => 'ufCrm29_1784036987', // Sub_Total_P_Option1
+			1062 => 'ufCrm29_1784036928', // Sub_Total_G_Option1
+			1070 => 'ufCrm29_1784037010', // Sub_Total_P_Option2
+			1074 => 'ufCrm29_1784036956', // Sub_Total_G_Option2
+		],
 	];
 
 	/** Total field codes per entity type, keyed by Option 1 and Option 2 */
@@ -105,6 +111,10 @@ class SpaSync
 		'lead' => [
 			'option1' => 'UF_CRM_1781524857503', // Option 1 - Total
 			'option2' => 'UF_CRM_1781524864424', // Option 2 - Total
+		],
+		'onboarding' => [
+			'option1' => 'ufCrm29_1784037033', // Option 1 - Total
+			'option2' => 'ufCrm29_1784037056', // Option 2 - Total
 		],
 	];
 

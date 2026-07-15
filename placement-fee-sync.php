@@ -16,6 +16,10 @@ switch ($placement) {
 		$entityType = 'lead';
 		$entityLabel = 'Lead';
 		break;
+	case 'CRM_DYNAMIC_1086_DETAIL_TAB':
+		$entityType = 'onboarding';
+		$entityLabel = 'Onboarding';
+		break;
 }
 
 if (!$entityType || $entityId <= 0):

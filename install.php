@@ -19,6 +19,11 @@ $placements = [
 		'HANDLER'   => $baseUrl . '/placement-fee-sync.php',
 		'TITLE'     => 'Fee SPA Sync',
 	],
+	[
+		'PLACEMENT' => 'CRM_DYNAMIC_1086_DETAIL_TAB',
+		'HANDLER'   => $baseUrl . '/placement-fee-sync.php',
+		'TITLE'     => 'Fee SPA Sync',
+	],
 ];
 
 foreach ($placements as $placement) {
@@ -46,19 +51,19 @@ foreach ($events as $event) {
 if($install_result['rest_only'] === false):?>
 <head>
 	<script src="//api.bitrix24.com/api/v1/"></script>
-	<?if($install_result['install'] == true):?>
+	<?php if($install_result['install'] == true):?>
 	<script>
 		BX24.init(function(){
 			BX24.installFinish();
 		});
 	</script>
-	<?endif;?>
+	<?php endif;?>
 </head>
 <body>
-	<?if($install_result['install'] == true):?>
+	<?php if($install_result['install'] == true):?>
 		installation has been finished
-	<?else:?>
+	<?php else:?>
 		installation error
-	<?endif;?>
+	<?php endif;?>
 </body>
-<?endif;
+<?php endif;

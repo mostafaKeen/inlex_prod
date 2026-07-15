@@ -8,11 +8,13 @@ class ProductSyncService
 	const OWNER_TYPE_MAP = [
 		1 => 'L',
 		2 => 'D',
+		1086 => 'T1086',
 	];
 
 	const ENTITY_TYPE_MAP = [
 		'lead' => 1,
 		'deal' => 2,
+		'onboarding' => 1086,
 	];
 
 	const FEE_FIELD_MAPS = [
@@ -27,6 +29,12 @@ class ProductSyncService
 			1062 => 'UF_CRM_1780912561',
 			1070 => 'UF_CRM_1781125540',
 			1074 => 'UF_CRM_1781125572',
+		],
+		'onboarding' => [
+			1058 => 'ufCrm29_1784036735',
+			1062 => 'ufCrm29_1784036829',
+			1070 => 'ufCrm29_1784036868',
+			1074 => 'ufCrm29_1784036903',
 		],
 	];
 
@@ -255,7 +263,7 @@ class ProductSyncService
 		// Update Sub_Total_* fields per fee type/option
 		// Money-type UF fields require "amount|CURRENCY" format, otherwise
 		// crm.item.update silently ignores the value.
-		$currencyId = $entity['CURRENCY_ID'] ?? 'AED';
+		$currencyId = $entity['CURRENCY_ID'] ?? $entity['currencyId'] ?? 'AED';
 		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
 		foreach ($subtotalFields as $spaTypeId => $fieldCode) {
 			if (!$fieldCode) {
@@ -264,9 +272,17 @@ class ProductSyncService
 			$amount = $subtotals[$spaTypeId] ?? 0.0;
 			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
 
-			$updateResult = $entityType === 'lead'
-				? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
-				: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			if ($entityType === 'onboarding') {
+				$updateResult = CRest::call('crm.item.update', [
+					'entityTypeId' => 1086,
+					'id' => $entityId,
+					'fields' => [$fieldCode => $value]
+				]);
+			} else {
+				$updateResult = $entityType === 'lead'
+					? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+					: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			}
 			CRest::setLog([
 				'field'    => $fieldCode,
 				'spaType'  => $spaTypeId,
@@ -296,9 +312,17 @@ class ProductSyncService
 			$amount = $optionTotals[$optionKey] ?? 0.0;
 			$value = number_format($amount, 2, '.', '') . '|' . $currencyId;
 
-			$updateResult = $entityType === 'lead'
-				? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
-				: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			if ($entityType === 'onboarding') {
+				$updateResult = CRest::call('crm.item.update', [
+					'entityTypeId' => 1086,
+					'id' => $entityId,
+					'fields' => [$fieldCode => $value]
+				]);
+			} else {
+				$updateResult = $entityType === 'lead'
+					? CRest::call('crm.lead.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']])
+					: CRest::call('crm.deal.update', ['id' => $entityId, 'fields' => [$fieldCode => $value], 'params' => ['REGISTER_SONET_EVENT' => 'N']]);
+			}
 			CRest::setLog([
 				'field'    => $fieldCode,
 				'option'   => $optionKey,
@@ -353,23 +377,34 @@ class ProductSyncService
 		// Update opportunity/amount with total including taxes and set currency
 		$totalWithTax = $totalWithoutTax + $totalTaxAmount;
 		
-		$updateResult = $entityType === 'lead'
-			? CRest::call('crm.lead.update', [
-				'id' => $entityId, 
+		if ($entityType === 'onboarding') {
+			$updateResult = CRest::call('crm.item.update', [
+				'entityTypeId' => 1086,
+				'id' => $entityId,
 				'fields' => [
-					'OPPORTUNITY' => $totalWithTax,
-					'CURRENCY_ID' => $currencyId
-				], 
-				'params' => ['REGISTER_SONET_EVENT' => 'N']
-			])
-			: CRest::call('crm.deal.update', [
-				'id' => $entityId, 
-				'fields' => [
-					'OPPORTUNITY' => $totalWithTax,
-					'CURRENCY_ID' => $currencyId
-				], 
-				'params' => ['REGISTER_SONET_EVENT' => 'N']
+					'opportunity' => $totalWithTax,
+					'currencyId' => $currencyId
+				]
 			]);
+		} else {
+			$updateResult = $entityType === 'lead'
+				? CRest::call('crm.lead.update', [
+					'id' => $entityId, 
+					'fields' => [
+						'OPPORTUNITY' => $totalWithTax,
+						'CURRENCY_ID' => $currencyId
+					], 
+					'params' => ['REGISTER_SONET_EVENT' => 'N']
+				])
+				: CRest::call('crm.deal.update', [
+					'id' => $entityId, 
+					'fields' => [
+						'OPPORTUNITY' => $totalWithTax,
+						'CURRENCY_ID' => $currencyId
+					], 
+					'params' => ['REGISTER_SONET_EVENT' => 'N']
+				]);
+		}
 		
 		CRest::setLog([
 			'fields'   => ['OPPORTUNITY', 'CURRENCY_ID'],
@@ -390,9 +425,11 @@ class ProductSyncService
 		];
 
 		// Set utm_check to Done
-		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
-		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
-		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+		if ($entityType !== 'onboarding') {
+			$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
+			self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
+			$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+		}
 
 		CRest::setLog([
 			'event' => 'sync_entity_complete',
@@ -486,7 +523,7 @@ class ProductSyncService
 		}
 
 		// 2. Zero out subtotal fields
-		$currencyId = $entity['CURRENCY_ID'] ?? 'AED';
+		$currencyId = $entity['CURRENCY_ID'] ?? $entity['currencyId'] ?? 'AED';
 		$zeroValue  = '0.00|' . $currencyId;
 
 		$subtotalFields = SpaSync::SUBTOTAL_FIELD_MAPS[$entityType] ?? [];
@@ -509,23 +546,34 @@ class ProductSyncService
 		}
 
 		// 4. Reset opportunity to 0 and ensure currency is set
-		$updateResult = $entityType === 'lead'
-			? CRest::call('crm.lead.update', [
-				'id' => $entityId, 
+		if ($entityType === 'onboarding') {
+			$updateResult = CRest::call('crm.item.update', [
+				'entityTypeId' => 1086,
+				'id' => $entityId,
 				'fields' => [
-					'OPPORTUNITY' => 0,
-					'CURRENCY_ID' => $currencyId
-				], 
-				'params' => ['REGISTER_SONET_EVENT' => 'N']
-			])
-			: CRest::call('crm.deal.update', [
-				'id' => $entityId, 
-				'fields' => [
-					'OPPORTUNITY' => 0,
-					'CURRENCY_ID' => $currencyId
-				], 
-				'params' => ['REGISTER_SONET_EVENT' => 'N']
+					'opportunity' => 0,
+					'currencyId' => $currencyId
+				]
 			]);
+		} else {
+			$updateResult = $entityType === 'lead'
+				? CRest::call('crm.lead.update', [
+					'id' => $entityId, 
+					'fields' => [
+						'OPPORTUNITY' => 0,
+						'CURRENCY_ID' => $currencyId
+					], 
+					'params' => ['REGISTER_SONET_EVENT' => 'N']
+				])
+				: CRest::call('crm.deal.update', [
+					'id' => $entityId, 
+					'fields' => [
+						'OPPORTUNITY' => 0,
+						'CURRENCY_ID' => $currencyId
+					], 
+					'params' => ['REGISTER_SONET_EVENT' => 'N']
+				]);
+		}
 		$actions[] = [
 			'action' => 'reset_opportunity', 
 			'fields' => ['OPPORTUNITY', 'CURRENCY_ID'], 
@@ -534,9 +582,11 @@ class ProductSyncService
 		];
 
 		// 5. Set status field to Done
-		$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
-		self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
-		$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+		if ($entityType !== 'onboarding') {
+			$utmCheckField = $entityType === 'lead' ? 'UF_CRM_1781076094241' : 'UF_CRM_6A29D1F62D40F';
+			self::updateClassicEntityField($entityType, $entityId, $utmCheckField, 'Done');
+			$actions[] = ['action' => 'updated_status', 'field' => $utmCheckField, 'value' => 'Done'];
+		}
 
 		CRest::setLog([
 			'event' => 'clear_all_spa_complete',
@@ -638,6 +688,18 @@ class ProductSyncService
 	 */
 	public static function getClassicEntity(string $entityType, int $entityId): ?array
 	{
+		if ($entityType === 'onboarding') {
+			$result = CRest::call('crm.item.get', [
+				'entityTypeId' => 1086,
+				'id' => $entityId,
+			]);
+			if (!empty($result['error']) || empty($result['result']['item'])) {
+				CRest::setLog($result, 'classic_entity_get_error');
+				return null;
+			}
+			return $result['result']['item'];
+		}
+
 		$method = $entityType === 'lead' ? 'crm.lead.get' : 'crm.deal.get';
 		$result = CRest::call($method, [
 			'id' => $entityId,
@@ -680,6 +742,19 @@ class ProductSyncService
 	 */
 	public static function updateClassicEntityField(string $entityType, int $entityId, string $fieldCode, $values): bool
 	{
+		if ($entityType === 'onboarding') {
+			$result = CRest::call('crm.item.update', [
+				'entityTypeId' => 1086,
+				'id'     => $entityId,
+				'fields' => [$fieldCode => $values],
+			]);
+			if (!empty($result['error'])) {
+				CRest::setLog($result, 'classic_entity_update_error');
+				return false;
+			}
+			return true;
+		}
+
 		$method = $entityType === 'lead' ? 'crm.lead.update' : 'crm.deal.update';
 		$result = CRest::call($method, [
 			'id'     => $entityId,
