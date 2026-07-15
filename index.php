@@ -479,6 +479,12 @@ var FeeSyncWidget = (function () {
 		1070: 'UF_CRM_1781125540',
 		1074: 'UF_CRM_1781125572'
 	};
+	var ONBOARDING_LINK_FIELDS = {
+		1058: 'ufCrm29_1784036735',
+		1062: 'ufCrm29_1784036829',
+		1070: 'ufCrm29_1784036868',
+		1074: 'ufCrm29_1784036903'
+	};
 
 	// Status field per entity type (set to "Done" after sync)
 	var STATUS_FIELDS = {
@@ -548,7 +554,10 @@ var FeeSyncWidget = (function () {
 
 	// ─── Get link field for current entity type + SPA type ───────────────────
 	function getLinkField(spaTypeId) {
-		var map = state.entityType === 'deal' ? DEAL_LINK_FIELDS : LEAD_LINK_FIELDS;
+		var map;
+		if (state.entityType === 'deal') map = DEAL_LINK_FIELDS;
+		else if (state.entityType === 'onboarding') map = ONBOARDING_LINK_FIELDS;
+		else map = LEAD_LINK_FIELDS;
 		return map[spaTypeId] || null;
 	}
 
@@ -567,30 +576,55 @@ var FeeSyncWidget = (function () {
 		log('Init for ' + entityType + ' #' + entityId);
 
 		setLoadingText('Loading entity…');
-		var method = entityType === 'deal' ? 'crm.deal.get' : 'crm.lead.get';
-		BX24.callMethod(method, { id: entityId }, function (res) {
+		var method, params;
+		if (entityType === 'onboarding') {
+			method = 'crm.item.get';
+			params = { entityTypeId: 1086, id: entityId };
+		} else {
+			method = entityType === 'deal' ? 'crm.deal.get' : 'crm.lead.get';
+			params = { id: entityId };
+		}
+		BX24.callMethod(method, params, function (res) {
 			if (!res.error() && res.data()) {
-				var data = res.data();
-				state.currencyId = data.CURRENCY_ID || 'AED';
+				var data = entityType === 'onboarding' ? (res.data().item || res.data()) : res.data();
+				state.currencyId = data.CURRENCY_ID || data.currencyId || 'AED';
 				log('Detected entity currency: ' + state.currencyId);
 				var selectEl = document.getElementById('entity-currency');
 				if (selectEl) selectEl.value = state.currencyId;
 
-				// Populate Option 1 fields
-				var opt1BA = document.getElementById('opt1-business-activity');
-				var opt1AA = document.getElementById('opt1-additional-approval');
-				var opt1ET = document.getElementById('opt1-estimated-timeframe');
-				if (opt1BA) opt1BA.value = data['UF_CRM_1780995716168'] || '';
-				if (opt1AA) opt1AA.value = data['UF_CRM_1780995738114'] || '';
-				if (opt1ET) opt1ET.value = data['UF_CRM_1780995781074'] || '';
+				if (entityType === 'onboarding') {
+					// Populate Option 1 fields from onboarding SPA
+					var opt1BA = document.getElementById('opt1-business-activity');
+					var opt1AA = document.getElementById('opt1-additional-approval');
+					var opt1ET = document.getElementById('opt1-estimated-timeframe');
+					if (opt1BA) opt1BA.value = data['ufCrm29_1784037094'] || '';
+					if (opt1AA) opt1AA.value = data['ufCrm29_1784037133'] || '';
+					if (opt1ET) opt1ET.value = data['ufCrm29_1784037165'] || '';
 
-				// Populate Option 2 fields
-				var opt2BA = document.getElementById('opt2-business-activity');
-				var opt2AA = document.getElementById('opt2-additional-approval');
-				var opt2ET = document.getElementById('opt2-estimated-timeframe');
-				if (opt2BA) opt2BA.value = data['UF_CRM_1781558949152'] || '';
-				if (opt2AA) opt2AA.value = data['UF_CRM_1781558963152'] || '';
-				if (opt2ET) opt2ET.value = data['UF_CRM_1781558977537'] || '';
+					// Populate Option 2 fields from onboarding SPA
+					var opt2BA = document.getElementById('opt2-business-activity');
+					var opt2AA = document.getElementById('opt2-additional-approval');
+					var opt2ET = document.getElementById('opt2-estimated-timeframe');
+					if (opt2BA) opt2BA.value = data['ufCrm29_1784037205'] || '';
+					if (opt2AA) opt2AA.value = data['ufCrm29_1784037223'] || '';
+					if (opt2ET) opt2ET.value = data['ufCrm29_1784037242'] || '';
+				} else {
+					// Populate Option 1 fields from lead/deal
+					var opt1BA = document.getElementById('opt1-business-activity');
+					var opt1AA = document.getElementById('opt1-additional-approval');
+					var opt1ET = document.getElementById('opt1-estimated-timeframe');
+					if (opt1BA) opt1BA.value = data['UF_CRM_1780995716168'] || '';
+					if (opt1AA) opt1AA.value = data['UF_CRM_1780995738114'] || '';
+					if (opt1ET) opt1ET.value = data['UF_CRM_1780995781074'] || '';
+
+					// Populate Option 2 fields from lead/deal
+					var opt2BA = document.getElementById('opt2-business-activity');
+					var opt2AA = document.getElementById('opt2-additional-approval');
+					var opt2ET = document.getElementById('opt2-estimated-timeframe');
+					if (opt2BA) opt2BA.value = data['UF_CRM_1781558949152'] || '';
+					if (opt2AA) opt2AA.value = data['UF_CRM_1781558963152'] || '';
+					if (opt2ET) opt2ET.value = data['UF_CRM_1781558977537'] || '';
+				}
 			} else {
 				log('Failed to fetch entity fields: ' + res.error());
 			}
@@ -677,19 +711,31 @@ var FeeSyncWidget = (function () {
 
 	// ─── Load entity product rows ─────────────────────────────────────────────
 	function loadEntityProducts(cb) {
-		var method = state.entityType === 'deal'
-			? 'crm.deal.productrows.get'
-			: 'crm.lead.productrows.get';
+		var method, params;
+		if (state.entityType === 'onboarding') {
+			method = 'crm.item.productrow.list';
+			params = { filter: { '=ownerType': 'T43e', '=ownerId': state.entityId } };
+		} else {
+			method = state.entityType === 'deal'
+				? 'crm.deal.productrows.get'
+				: 'crm.lead.productrows.get';
+			params = { id: state.entityId };
+		}
 
-		BX24.callMethod(method, { id: state.entityId }, function (res) {
+		BX24.callMethod(method, params, function (res) {
 			if (res.error()) {
 				log('Product rows error: ' + res.error());
 				if (cb) cb();
 				return;
 			}
-			var rows = res.data() || [];
-			log('Loaded ' + rows.length + ' product row(s)');
-			rows.forEach(function (r) {
+			var rawRows;
+			if (state.entityType === 'onboarding') {
+				rawRows = (res.data() && res.data().productRows) || [];
+			} else {
+				rawRows = res.data() || [];
+			}
+			log('Loaded ' + rawRows.length + ' product row(s)');
+			rawRows.forEach(function (r) {
 				state.rows.push(buildRowFromEntityRow(r));
 			});
 			if (cb) cb();
@@ -697,23 +743,32 @@ var FeeSyncWidget = (function () {
 	}
 
 	function buildRowFromEntityRow(r) {
-		var catalogItem = findCatalogProduct(r.PRODUCT_ID);
+		var isOnboarding = (state.entityType === 'onboarding');
+		var productId   = isOnboarding ? (r.productId || r.PRODUCT_ID) : r.PRODUCT_ID;
+		var productName = isOnboarding ? (r.productName || r.PRODUCT_NAME) : r.PRODUCT_NAME;
+		var price       = isOnboarding ? (r.price || r.PRICE) : r.PRICE;
+		var quantity    = isOnboarding ? (r.quantity || r.QUANTITY) : r.QUANTITY;
+		var taxRate     = isOnboarding ? (r.taxRate || r.TAX_RATE) : r.TAX_RATE;
+		var taxIncluded = isOnboarding ? (r.taxIncluded || r.TAX_INCLUDED) : r.TAX_INCLUDED;
+		var sort        = isOnboarding ? (r.sort || r.SORT) : r.SORT;
+
+		var catalogItem = findCatalogProduct(productId);
 		var typeOfCost  = getPropValue(catalogItem, 'PROPERTY_111') || '';
 		var payments    = getPropValue(catalogItem, 'PROPERTY_109') || '';
 		var option      = getPropValue(catalogItem, 'PROPERTY_119') || '';
 
 		var row = {
 			id:          state.nextRowId++,
-			productId:   r.PRODUCT_ID || '',
-			name:        r.PRODUCT_NAME || (catalogItem ? (catalogItem.NAME || '') : ''),
-			price:       parseFloat(r.PRICE    || 0),
-			qty:         parseFloat(r.QUANTITY || 1),
-			taxRate:     parseFloat(r.TAX_RATE || 0),
-			taxIncluded: (r.TAX_INCLUDED === 'Y'),
+			productId:   productId || '',
+			name:        productName || (catalogItem ? (catalogItem.NAME || '') : ''),
+			price:       parseFloat(price || 0),
+			qty:         parseFloat(quantity || 1),
+			taxRate:     parseFloat(taxRate || 0),
+			taxIncluded: (taxIncluded === 'Y' || taxIncluded === true),
 			typeOfCost:  String(typeOfCost),
 			payments:    String(payments),
 			option:      String(option),
-			sort:        parseInt(r.SORT || 0),
+			sort:        parseInt(sort || 0),
 			spaId:       null,
 			_entityRow:  r
 		};
@@ -1409,21 +1464,38 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		showSaveModal();
 		log((isClearing ? 'Clearing' : 'Saving ' + rows.length) + ' row(s) on ' + state.entityType + ' #' + state.entityId);
 
-		var method = state.entityType === 'deal'
-			? 'crm.deal.productrows.set'
-			: 'crm.lead.productrows.set';
-
-		var productRows = rows.map(function (r, idx) {
-			return {
-				PRODUCT_ID:   r.productId || 0,
-				PRODUCT_NAME: r.name,
-				PRICE:        r.price,
-				QUANTITY:     r.qty,
-				TAX_RATE:     r.taxRate,
-				TAX_INCLUDED: r.taxIncluded ? 'Y' : 'N',
-				SORT:         (idx + 1) * 10
-			};
-		});
+		var method, callParams;
+		if (state.entityType === 'onboarding') {
+			method = 'crm.item.productrow.set';
+			var productRows = rows.map(function (r, idx) {
+				return {
+					productId:   r.productId || 0,
+					productName: r.name,
+					price:       r.price,
+					quantity:    r.qty,
+					taxRate:     r.taxRate,
+					taxIncluded: r.taxIncluded ? true : false,
+					sort:        (idx + 1) * 10
+				};
+			});
+			callParams = { ownerType: 'T43e', ownerId: state.entityId, productRows: productRows };
+		} else {
+			method = state.entityType === 'deal'
+				? 'crm.deal.productrows.set'
+				: 'crm.lead.productrows.set';
+			var productRows = rows.map(function (r, idx) {
+				return {
+					PRODUCT_ID:   r.productId || 0,
+					PRODUCT_NAME: r.name,
+					PRICE:        r.price,
+					QUANTITY:     r.qty,
+					TAX_RATE:     r.taxRate,
+					TAX_INCLUDED: r.taxIncluded ? 'Y' : 'N',
+					SORT:         (idx + 1) * 10
+				};
+			});
+			callParams = { id: state.entityId, rows: productRows };
+		}
 
 		// Helper: continues the rest of the save pipeline (catalog, opportunity, SPA, status)
 		function continueAfterProductRows() {
@@ -1450,7 +1522,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			});
 		}
 
-		BX24.callMethod(method, { id: state.entityId, rows: productRows }, function (res) {
+		BX24.callMethod(method, callParams, function (res) {
 			if (res.error()) {
 				if (isClearing) {
 					// Clearing products – API may reject empty rows; that's OK, continue unbinding
@@ -1546,11 +1618,22 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 	}
 
 	function updateEntityOpportunity(amount, cb) {
-		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
-		BX24.callMethod(method, {
-			id: state.entityId,
-			fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y', CURRENCY_ID: state.currencyId }
-		}, function (res) {
+		var method, params;
+		if (state.entityType === 'onboarding') {
+			method = 'crm.item.update';
+			params = {
+				entityTypeId: 1086,
+				id: state.entityId,
+				fields: { opportunity: amount, isManualOpportunity: 'Y', currencyId: state.currencyId }
+			};
+		} else {
+			method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+			params = {
+				id: state.entityId,
+				fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y', CURRENCY_ID: state.currencyId }
+			};
+		}
+		BX24.callMethod(method, params, function (res) {
 			if (res.error()) log('Opportunity update error: ' + res.error());
 			else log('Opportunity → ' + amount.toFixed(2) + ' ' + state.currencyId);
 			if (cb) cb();
@@ -1558,27 +1641,51 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 	}
 
 	function updateEntityMetadata(cb) {
-		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+		var method, callParams;
 		var fields = {};
 
-		// Get Option 1 values
-		var opt1BA = document.getElementById('opt1-business-activity');
-		var opt1AA = document.getElementById('opt1-additional-approval');
-		var opt1ET = document.getElementById('opt1-estimated-timeframe');
-		if (opt1BA) fields['UF_CRM_1780995716168'] = opt1BA.value;
-		if (opt1AA) fields['UF_CRM_1780995738114'] = opt1AA.value;
-		if (opt1ET) fields['UF_CRM_1780995781074'] = opt1ET.value;
+		if (state.entityType === 'onboarding') {
+			method = 'crm.item.update';
+			// Get Option 1 values (onboarding SPA fields)
+			var opt1BA = document.getElementById('opt1-business-activity');
+			var opt1AA = document.getElementById('opt1-additional-approval');
+			var opt1ET = document.getElementById('opt1-estimated-timeframe');
+			if (opt1BA) fields['ufCrm29_1784037094'] = opt1BA.value;
+			if (opt1AA) fields['ufCrm29_1784037133'] = opt1AA.value;
+			if (opt1ET) fields['ufCrm29_1784037165'] = opt1ET.value;
 
-		// Get Option 2 values
-		var opt2BA = document.getElementById('opt2-business-activity');
-		var opt2AA = document.getElementById('opt2-additional-approval');
-		var opt2ET = document.getElementById('opt2-estimated-timeframe');
-		if (opt2BA) fields['UF_CRM_1781558949152'] = opt2BA.value;
-		if (opt2AA) fields['UF_CRM_1781558963152'] = opt2AA.value;
-		if (opt2ET) fields['UF_CRM_1781558977537'] = opt2ET.value;
+			// Get Option 2 values (onboarding SPA fields)
+			var opt2BA = document.getElementById('opt2-business-activity');
+			var opt2AA = document.getElementById('opt2-additional-approval');
+			var opt2ET = document.getElementById('opt2-estimated-timeframe');
+			if (opt2BA) fields['ufCrm29_1784037205'] = opt2BA.value;
+			if (opt2AA) fields['ufCrm29_1784037223'] = opt2AA.value;
+			if (opt2ET) fields['ufCrm29_1784037242'] = opt2ET.value;
+
+			callParams = { entityTypeId: 1086, id: state.entityId, fields: fields };
+		} else {
+			method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
+			// Get Option 1 values (lead/deal fields)
+			var opt1BA = document.getElementById('opt1-business-activity');
+			var opt1AA = document.getElementById('opt1-additional-approval');
+			var opt1ET = document.getElementById('opt1-estimated-timeframe');
+			if (opt1BA) fields['UF_CRM_1780995716168'] = opt1BA.value;
+			if (opt1AA) fields['UF_CRM_1780995738114'] = opt1AA.value;
+			if (opt1ET) fields['UF_CRM_1780995781074'] = opt1ET.value;
+
+			// Get Option 2 values (lead/deal fields)
+			var opt2BA = document.getElementById('opt2-business-activity');
+			var opt2AA = document.getElementById('opt2-additional-approval');
+			var opt2ET = document.getElementById('opt2-estimated-timeframe');
+			if (opt2BA) fields['UF_CRM_1781558949152'] = opt2BA.value;
+			if (opt2AA) fields['UF_CRM_1781558963152'] = opt2AA.value;
+			if (opt2ET) fields['UF_CRM_1781558977537'] = opt2ET.value;
+
+			callParams = { id: state.entityId, fields: fields };
+		}
 
 		log('Updating entity metadata fields...');
-		BX24.callMethod(method, { id: state.entityId, fields: fields }, function (res) {
+		BX24.callMethod(method, callParams, function (res) {
 			if (res.error()) {
 				log('Error updating entity metadata: ' + res.error());
 			} else {
