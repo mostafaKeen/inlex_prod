@@ -196,8 +196,8 @@ var FeeSyncWidget = (function () {
       method = 'crm.item.productrow.list';
       params = {
         filter: {
-          ownerType: 'T1086',
-          ownerId: state.entityId
+          '=ownerType': 'T43e',
+          '=ownerId': state.entityId
         }
       };
     } else {
@@ -699,7 +699,7 @@ var FeeSyncWidget = (function () {
     if (state.entityType === 'onboarding') {
       method = 'crm.item.productrow.set';
       params = {
-        ownerType: 'T1086',
+        ownerType: 'T43e',
         ownerId: state.entityId,
         productRows: productRows
       };

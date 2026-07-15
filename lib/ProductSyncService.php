@@ -8,7 +8,7 @@ class ProductSyncService
 	const OWNER_TYPE_MAP = [
 		1 => 'L',
 		2 => 'D',
-		1086 => 'T1086',
+		1086 => 'T43e',
 	];
 
 	const ENTITY_TYPE_MAP = [
