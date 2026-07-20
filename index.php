@@ -1505,20 +1505,20 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 					var tax = base * (r.taxRate / 100);
 					return sum + base + tax; 
 				}, 0);
-				updateEntityOpportunity(totalAmt, function () {
-					updateEntityMetadata(function () {
+				// Delay to let Bitrix24 finish internal OPPORTUNITY recalc
+				// triggered by productrows.set before we overwrite it
+				setTimeout(function () {
+					updateEntityAllFields(totalAmt, function () {
 						syncSpaItems(rows, function () {
-							updateEntityStatus(function () {
-								var msg = isClearing
-									? 'All products cleared'
-									: rows.length + ' product' + (rows.length !== 1 ? 's' : '');
-								closeSaveModal(true, msg);
-								setStatus('✓ Saved & synced', 'status-success');
-								log('All done');
-							});
+							var msg = isClearing
+								? 'All products cleared'
+								: rows.length + ' product' + (rows.length !== 1 ? 's' : '');
+							closeSaveModal(true, msg);
+							setStatus('✓ Saved & synced', 'status-success');
+							log('All done');
 						});
 					});
-				});
+				}, 1500);
 			});
 		}
 
@@ -1617,36 +1617,22 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 		});
 	}
 
-	function updateEntityOpportunity(amount, cb) {
+	// ─── Combined entity update (opportunity + metadata + status) ────────────
+	// Merges opportunity, option details, and status into ONE API call to prevent
+	// race conditions where separate crm.deal.update calls overwrite each other.
+	function updateEntityAllFields(amount, cb) {
 		var method, params;
-		if (state.entityType === 'onboarding') {
-			method = 'crm.item.update';
-			params = {
-				entityTypeId: 1086,
-				id: state.entityId,
-				fields: { opportunity: amount, isManualOpportunity: 'Y', currencyId: state.currencyId }
-			};
-		} else {
-			method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
-			params = {
-				id: state.entityId,
-				fields: { OPPORTUNITY: amount, IS_MANUAL_OPPORTUNITY: 'Y', CURRENCY_ID: state.currencyId }
-			};
-		}
-		BX24.callMethod(method, params, function (res) {
-			if (res.error()) log('Opportunity update error: ' + res.error());
-			else log('Opportunity → ' + amount.toFixed(2) + ' ' + state.currencyId);
-			if (cb) cb();
-		});
-	}
-
-	function updateEntityMetadata(cb) {
-		var method, callParams;
 		var fields = {};
 
 		if (state.entityType === 'onboarding') {
 			method = 'crm.item.update';
-			// Get Option 1 values (onboarding SPA fields)
+
+			// Opportunity
+			fields.opportunity = amount;
+			fields.isManualOpportunity = 'Y';
+			fields.currencyId = state.currencyId;
+
+			// Option 1 metadata
 			var opt1BA = document.getElementById('opt1-business-activity');
 			var opt1AA = document.getElementById('opt1-additional-approval');
 			var opt1ET = document.getElementById('opt1-estimated-timeframe');
@@ -1654,7 +1640,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			if (opt1AA) fields['ufCrm29_1784037133'] = opt1AA.value;
 			if (opt1ET) fields['ufCrm29_1784037165'] = opt1ET.value;
 
-			// Get Option 2 values (onboarding SPA fields)
+			// Option 2 metadata
 			var opt2BA = document.getElementById('opt2-business-activity');
 			var opt2AA = document.getElementById('opt2-additional-approval');
 			var opt2ET = document.getElementById('opt2-estimated-timeframe');
@@ -1662,10 +1648,16 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			if (opt2AA) fields['ufCrm29_1784037223'] = opt2AA.value;
 			if (opt2ET) fields['ufCrm29_1784037242'] = opt2ET.value;
 
-			callParams = { entityTypeId: 1086, id: state.entityId, fields: fields };
+			params = { entityTypeId: 1086, id: state.entityId, fields: fields };
 		} else {
 			method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
-			// Get Option 1 values (lead/deal fields)
+
+			// Opportunity
+			fields.OPPORTUNITY = amount;
+			fields.IS_MANUAL_OPPORTUNITY = 'Y';
+			fields.CURRENCY_ID = state.currencyId;
+
+			// Option 1 metadata
 			var opt1BA = document.getElementById('opt1-business-activity');
 			var opt1AA = document.getElementById('opt1-additional-approval');
 			var opt1ET = document.getElementById('opt1-estimated-timeframe');
@@ -1673,7 +1665,7 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			if (opt1AA) fields['UF_CRM_1780995738114'] = opt1AA.value;
 			if (opt1ET) fields['UF_CRM_1780995781074'] = opt1ET.value;
 
-			// Get Option 2 values (lead/deal fields)
+			// Option 2 metadata
 			var opt2BA = document.getElementById('opt2-business-activity');
 			var opt2AA = document.getElementById('opt2-additional-approval');
 			var opt2ET = document.getElementById('opt2-estimated-timeframe');
@@ -1681,35 +1673,28 @@ if (qtyEl) row.qty = parseFloat(qtyEl.value) || 1;
 			if (opt2AA) fields['UF_CRM_1781558963152'] = opt2AA.value;
 			if (opt2ET) fields['UF_CRM_1781558977537'] = opt2ET.value;
 
-			callParams = { id: state.entityId, fields: fields };
+			// Status field ("Done")
+			var statusField = STATUS_FIELDS[state.entityType];
+			if (statusField) {
+				fields[statusField] = 'Done';
+				log('Status field ' + statusField + ' → Done');
+			}
+
+			params = { id: state.entityId, fields: fields };
 		}
 
-		log('Updating entity metadata fields...');
-		BX24.callMethod(method, callParams, function (res) {
+		log('Updating entity (combined: opportunity + metadata + status)...');
+		log('Opportunity → ' + amount.toFixed(2) + ' ' + state.currencyId);
+		BX24.callMethod(method, params, function (res) {
 			if (res.error()) {
-				log('Error updating entity metadata: ' + res.error());
+				log('Combined entity update error: ' + res.error());
 			} else {
-				log('Entity metadata updated successfully');
+				log('Combined entity update OK (opportunity=' + amount.toFixed(2) + ')');
 			}
 			if (cb) cb();
 		});
 	}
 
-	// ─── Set status field to "Done" ───────────────────────────────────────────
-	function updateEntityStatus(cb) {
-		var field  = STATUS_FIELDS[state.entityType];
-		var method = state.entityType === 'deal' ? 'crm.deal.update' : 'crm.lead.update';
-		if (!field) { log('No status field for entity type: ' + state.entityType); if (cb) cb(); return; }
-
-		var fields = {};
-		fields[field] = 'Done';
-
-		BX24.callMethod(method, { id: state.entityId, fields: fields }, function (res) {
-			if (res.error()) log('Error updating status field ' + field + ': ' + res.error());
-			else log('Status field ' + field + ' → Done');
-			if (cb) cb();
-		});
-	}
 
 	// ─── SPA Sync ─────────────────────────────────────────────────────────────
 	function syncSpaItems(rows, cb) {
